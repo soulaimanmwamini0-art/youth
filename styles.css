@@ -2,6 +2,14 @@
 
 /* Volunteer portal */
 .hidden{display:none!important}
+
+/* Make the volunteer portal render immediately, even while the Supabase SDK is loading. */
+html.portal-route body > .topline,
+html.portal-route body > .site-header,
+html.portal-route body > .site-footer,
+html.portal-route body > main > section:not(#volunteerPortal){display:none!important}
+html.portal-route body > main > #volunteerPortal{display:block!important}
+html.portal-route #portalLoginPanel{display:block!important}
 .portal-page{background:#f6f8fb;min-height:calc(100vh - 80px);padding:56px 0 24px}
 .portal-shell{max-width:1120px}
 .portal-hero{display:flex;align-items:end;justify-content:space-between;gap:32px;padding:12px 0 30px;border-bottom:1px solid #dfe5ec}
