@@ -12,29 +12,36 @@ function initSupabaseClient(){
   if(supabase) return Promise.resolve(supabase);
   if(!hasConfig) return Promise.resolve(null);
   
-  const getClient = () => window.supabase?.createClient ? window.supabase : window.supabase?.supabase;
-  
-  let clientObj = getClient();
-  if(clientObj?.createClient){
-    supabase=clientObj.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  if(window.supabase && window.supabase.createClient){
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     return Promise.resolve(supabase);
   }
+  
   if(supabaseLoadPromise) return supabaseLoadPromise;
-  supabaseLoadPromise=new Promise((resolve,reject)=>{
-    const script=document.createElement('script');
-    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-    script.async=true;
-    script.onload=()=>{
-      setTimeout(()=>{
-        try{
-          clientObj = getClient();
-          if(!clientObj?.createClient) throw new Error('Supabase SDK loaded but createClient is unavailable.');
-          supabase=clientObj.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  
+  supabaseLoadPromise = new Promise((resolve,reject)=>{
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+    script.async = true;
+    
+    script.onload = () => {
+      let attempts = 0;
+      const timer = setInterval(() => {
+        attempts++;
+        const sb = window.supabase?.createClient ? window.supabase : window.supabase?.supabase;
+        
+        if(sb && sb.createClient){
+          clearInterval(timer);
+          supabase = sb.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
           resolve(supabase);
-        }catch(err){reject(err)}
+        } else if (attempts > 50) { // Itanga warning nyuma y'amasegonda 5
+          clearInterval(timer);
+          reject(new Error('Internet irimo gutinda cyangwa Supabase ntabwo yafungutse neza. Ongera ugerageze.'));
+        }
       }, 100);
     };
-    script.onerror=()=>reject(new Error('Unable to load the Supabase browser library.'));
+    
+    script.onerror = () => reject(new Error('Ntabwo bibashije guhuza na Supabase. Reba connection ya internet.'));
     document.head.appendChild(script);
   });
   return supabaseLoadPromise;
