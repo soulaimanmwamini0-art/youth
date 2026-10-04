@@ -17,8 +17,8 @@ function initSupabaseClient(){
   if(supabaseLoadPromise) return supabaseLoadPromise;
   supabaseLoadPromise=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    // FIXED: Point directly to the UMD browser build instead of the package root
-    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+    // FIXED: Switched to unpkg to reliably serve the UMD browser build
+    script.src='https://unpkg.com/@supabase/supabase-js@2';
     script.async=true;
     script.onload=()=>{
       try{
@@ -446,6 +446,8 @@ for each row execute function public.set_updated_at();
 function q(id){return document.getElementById(id)}
 function text(id,v){const e=q(id);if(e)e.textContent=v??''}
 function message(el,txt,type=''){if(!el)return;el.textContent=txt;el.className='form-message '+type}
+// FIXED: Added missing setLoading utility function
+function setLoading(btn, isLoading, msg=''){if(!btn)return;if(isLoading){btn.dataset.txt=btn.textContent;btn.textContent=msg;btn.disabled=true}else{if(btn.dataset.txt)btn.textContent=btn.dataset.txt;btn.disabled=false}}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function csvCell(v){return '"'+String(v??'').replaceAll('"','""')+'"'}
 function downloadCsv(filename,rows){if(!rows.length){alert('No records match this selection.');return}const headers=Object.keys(rows[0]);const csv=[headers.map(csvCell).join(','),...rows.map(r=>headers.map(h=>csvCell(r[h])).join(','))].join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
