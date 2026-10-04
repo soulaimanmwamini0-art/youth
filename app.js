@@ -8,29 +8,38 @@ const hasConfig = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && !SUPAB
 let supabase = null;
 let supabaseLoadPromise = null;
 
+function setLoading(button, loading, textContent) {
+  if (!button) return;
+  if (loading) {
+    button.disabled = true;
+    button.dataset.origText = button.textContent;
+    if (textContent) button.textContent = textContent;
+  } else {
+    button.disabled = false;
+    if (button.dataset.origText) button.textContent = button.dataset.origText;
+  }
+}
+
 function initSupabaseClient(){
   if(supabase) return Promise.resolve(supabase);
   if(!hasConfig) return Promise.resolve(null);
   if(window.supabase?.createClient){
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
     return Promise.resolve(supabase);
   }
   if(supabaseLoadPromise) return supabaseLoadPromise;
-  supabaseLoadPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    // FIXED: Using the official jsdelivr NPM path which guarantees the UMD browser bundle
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    script.async = true;
-    script.onload = () => {
-      try {
+  supabaseLoadPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+    script.async=true;
+    script.onload=()=>{
+      try{
         if(!window.supabase?.createClient) throw new Error('Supabase SDK loaded but createClient is unavailable.');
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
         resolve(supabase);
-      } catch(err) { 
-        reject(err); 
-      }
+      }catch(err){reject(err)}
     };
-    script.onerror = () => reject(new Error('Unable to load the Supabase browser library.'));
+    script.onerror=()=>reject(new Error('Unable to load the Supabase browser library.'));
     document.head.appendChild(script);
   });
   return supabaseLoadPromise;
@@ -41,13 +50,8 @@ const isAdminPage = document.body?.dataset.page === 'admin';
 const SETUP_SQL = String.raw`
 -- RP GISHARI COLLEGE - YOUTH VOLUNTEERS
 -- Run this entire script in Supabase SQL Editor.
--- It is safe for the current 4-file website and migrates legacy profiles when present.
-
 create extension if not exists pgcrypto;
 
--- ============================================================
--- 1. CANONICAL VOLUNTEER TABLE
--- ============================================================
 create table if not exists public.volunteers (
   id uuid primary key default gen_random_uuid(),
   auth_user_id uuid unique references auth.users(id) on delete set null,
@@ -87,32 +91,6 @@ create index if not exists volunteers_year_idx on public.volunteers(year_level);
 create index if not exists volunteers_role_idx on public.volunteers(role);
 create index if not exists volunteers_auth_user_idx on public.volunteers(auth_user_id);
 
--- Legacy migration from the earlier 4-file version.
--- Fresh Supabase projects may not have public.profiles at all, so this is conditional.
-do $$
-begin
-  if to_regclass('public.profiles') is not null then
-    execute $migrate$
-      insert into public.volunteers (
-        id, auth_user_id, full_name, email, phone, sex, student_id, year_level, department, option_name,
-        academic_year, district, availability, preferred_area, skills, emergency_contact, emergency_phone,
-        bank_name, bank_account_name, bank_account_number, motivation, agreement_conduct, agreement_data,
-        media_consent, status, role, created_at, updated_at
-      )
-      select
-        p.id, p.id, p.full_name, p.email, p.phone, p.sex, p.student_id, p.year_level, p.department, p.option_name,
-        p.academic_year, p.district, p.availability, p.preferred_area, p.skills, p.emergency_contact, p.emergency_phone,
-        (to_jsonb(p)->>'bank_name'), (to_jsonb(p)->>'bank_account_name'), (to_jsonb(p)->>'bank_account_number'), p.motivation, p.agreement_conduct, p.agreement_data,
-        p.media_consent, p.status, p.role, p.created_at, p.updated_at
-      from public.profiles p
-      on conflict (id) do nothing
-    $migrate$;
-  end if;
-end $$;
-
--- ============================================================
--- 2. SECURITY FUNCTIONS + AUTH LINKING
--- ============================================================
 create or replace function public.is_admin(uid uuid)
 returns boolean
 language sql stable security definer set search_path=public
@@ -124,320 +102,11 @@ as $$
 $$;
 
 grant execute on function public.is_admin(uuid) to anon, authenticated;
-
-create or replace function public.protect_volunteer_privileges()
-returns trigger
-language plpgsql security definer set search_path=public
-as $$
-begin
-  if auth.uid() is not null and not public.is_admin(auth.uid()) then
-    if OLD.auth_user_id is distinct from auth.uid() then
-      raise exception 'Not allowed';
-    end if;
-    NEW.id := OLD.id;
-    NEW.auth_user_id := OLD.auth_user_id;
-    NEW.role := OLD.role;
-    NEW.status := OLD.status;
-    NEW.created_at := OLD.created_at;
-    NEW.email := OLD.email;
-  end if;
-  NEW.updated_at := now();
-  return NEW;
-end;
-$$;
-
-drop trigger if exists protect_volunteer_privileges on public.volunteers;
-create trigger protect_volunteer_privileges
-before update on public.volunteers
-for each row execute function public.protect_volunteer_privileges();
-
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql security definer set search_path=public
-as $$
-declare
-  existing_id uuid;
-begin
-  select id into existing_id
-  from public.volunteers
-  where lower(email)=lower(new.email) and auth_user_id is null
-  order by created_at asc
-  limit 1;
-
-  if existing_id is not null then
-    update public.volunteers set
-      auth_user_id = new.id,
-      email = new.email,
-      full_name = coalesce(nullif(full_name,''), new.raw_user_meta_data->>'full_name',''),
-      phone = coalesce(nullif(phone,''), new.raw_user_meta_data->>'phone',''),
-      sex = coalesce(nullif(sex,''), new.raw_user_meta_data->>'sex',''),
-      student_id = coalesce(student_id, new.raw_user_meta_data->>'student_id'),
-      year_level = coalesce(nullif(year_level,''), new.raw_user_meta_data->>'year_level'),
-      department = coalesce(nullif(department,''), new.raw_user_meta_data->>'department',''),
-      option_name = coalesce(nullif(option_name,''), new.raw_user_meta_data->>'option_name',''),
-      academic_year = coalesce(academic_year, new.raw_user_meta_data->>'academic_year'),
-      district = coalesce(district, new.raw_user_meta_data->>'district'),
-      availability = coalesce(availability, new.raw_user_meta_data->>'availability','Weekly'),
-      preferred_area = coalesce(preferred_area, new.raw_user_meta_data->>'preferred_area'),
-      skills = coalesce(skills, new.raw_user_meta_data->>'skills'),
-      emergency_contact = coalesce(emergency_contact, new.raw_user_meta_data->>'emergency_contact'),
-      emergency_phone = coalesce(emergency_phone, new.raw_user_meta_data->>'emergency_phone'),
-      bank_name = coalesce(bank_name, new.raw_user_meta_data->>'bank_name'),
-      bank_account_name = coalesce(bank_account_name, new.raw_user_meta_data->>'bank_account_name'),
-      bank_account_number = coalesce(bank_account_number, new.raw_user_meta_data->>'bank_account_number'),
-      motivation = coalesce(nullif(motivation,''), new.raw_user_meta_data->>'motivation',''),
-      agreement_conduct = case when agreement_conduct then true else coalesce((new.raw_user_meta_data->>'agreement_conduct')::boolean,false) end,
-      agreement_data = case when agreement_data then true else coalesce((new.raw_user_meta_data->>'agreement_data')::boolean,false) end,
-      media_consent = case when media_consent then true else coalesce((new.raw_user_meta_data->>'media_consent')::boolean,false) end,
-      updated_at = now()
-    where id = existing_id;
-    return new;
-  end if;
-
-  insert into public.volunteers (
-    id, auth_user_id, full_name, email, phone, sex, student_id, year_level, department, option_name,
-    academic_year, district, availability, preferred_area, skills, emergency_contact, emergency_phone,
-    bank_name, bank_account_name, bank_account_number, motivation, agreement_conduct, agreement_data,
-    media_consent, status, role
-  ) values (
-    new.id, new.id,
-    coalesce(new.raw_user_meta_data->>'full_name',''),
-    new.email,
-    coalesce(new.raw_user_meta_data->>'phone',''),
-    coalesce(new.raw_user_meta_data->>'sex',''),
-    new.raw_user_meta_data->>'student_id',
-    coalesce(new.raw_user_meta_data->>'year_level',''),
-    coalesce(new.raw_user_meta_data->>'department',''),
-    coalesce(new.raw_user_meta_data->>'option_name',''),
-    new.raw_user_meta_data->>'academic_year',
-    new.raw_user_meta_data->>'district',
-    coalesce(new.raw_user_meta_data->>'availability','Weekly'),
-    new.raw_user_meta_data->>'preferred_area',
-    new.raw_user_meta_data->>'skills',
-    new.raw_user_meta_data->>'emergency_contact',
-    new.raw_user_meta_data->>'emergency_phone',
-    new.raw_user_meta_data->>'bank_name',
-    new.raw_user_meta_data->>'bank_account_name',
-    new.raw_user_meta_data->>'bank_account_number',
-    coalesce(new.raw_user_meta_data->>'motivation',''),
-    coalesce((new.raw_user_meta_data->>'agreement_conduct')::boolean,false),
-    coalesce((new.raw_user_meta_data->>'agreement_data')::boolean,false),
-    coalesce((new.raw_user_meta_data->>'media_consent')::boolean,false),
-    'pending','volunteer'
-  );
-  return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-after insert on auth.users
-for each row execute procedure public.handle_new_user();
-
--- ============================================================
--- 3. VOLUNTEER RLS
--- ============================================================
-drop policy if exists volunteers_self_select on public.volunteers;
-create policy volunteers_self_select on public.volunteers
-for select to authenticated
-using (auth_user_id=auth.uid() or public.is_admin(auth.uid()));
-
-drop policy if exists volunteers_self_update on public.volunteers;
-create policy volunteers_self_update on public.volunteers
-for update to authenticated
-using (auth_user_id=auth.uid() or public.is_admin(auth.uid()))
-with check (auth_user_id=auth.uid() or public.is_admin(auth.uid()));
-
-drop policy if exists volunteers_admin_insert on public.volunteers;
-create policy volunteers_admin_insert on public.volunteers
-for insert to authenticated
-with check (public.is_admin(auth.uid()));
-
-drop policy if exists volunteers_admin_delete on public.volunteers;
-create policy volunteers_admin_delete on public.volunteers
-for delete to authenticated
-using (public.is_admin(auth.uid()));
-
--- ============================================================
--- 4. PUBLIC STATS (ONLY AGGREGATES)
--- ============================================================
-create table if not exists public.ideas (
-  id uuid primary key default gen_random_uuid(),
-  name text,
-  email text,
-  idea text not null,
-  status text not null default 'new' check (status in ('new','reviewed','archived')),
-  created_at timestamptz not null default now()
-);
-
-alter table public.ideas enable row level security;
-drop policy if exists ideas_public_insert on public.ideas;
-create policy ideas_public_insert on public.ideas for insert to anon,authenticated with check (true);
-drop policy if exists ideas_admin_select on public.ideas;
-create policy ideas_admin_select on public.ideas for select to authenticated
-using (public.is_admin(auth.uid()));
-
-drop policy if exists ideas_admin_update on public.ideas;
-create policy ideas_admin_update on public.ideas for update to authenticated
-using (public.is_admin(auth.uid()))
-with check (public.is_admin(auth.uid()));
-
-drop policy if exists ideas_admin_delete on public.ideas;
-create policy ideas_admin_delete on public.ideas for delete to authenticated
-using (public.is_admin(auth.uid()));
-
-create or replace function public.get_public_stats()
-returns json
-language plpgsql security definer set search_path=public
-as $$
-declare result json;
-begin
-  select json_build_object(
-    'registered',count(*),
-    'active',count(*) filter(where status='active'),
-    'pending',count(*) filter(where status='pending'),
-    'suspended',count(*) filter(where status='suspended'),
-    'female',count(*) filter(where lower(sex)='female'),
-    'male',count(*) filter(where lower(sex)='male'),
-    'other_sex',count(*) filter(where lower(sex) not in ('female','male')),
-    'ideas_received',(select count(*) from public.ideas)
-  ) into result from public.volunteers;
-  return result;
-end;
-$$;
-grant execute on function public.get_public_stats() to anon, authenticated;
-
--- ============================================================
--- 5. POSTS / STORIES
--- ============================================================
-create table if not exists public.posts (
-  id uuid primary key default gen_random_uuid(),
-  title text not null,
-  slug text unique not null,
-  category text not null default 'Story',
-  excerpt text,
-  content text,
-  cover_url text,
-  cover_path text,
-  media_url text,
-  media_path text,
-  media_name text,
-  media_type text,
-  is_published boolean not null default false,
-  published_at timestamptz,
-  author_id uuid,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
--- Replace legacy posts -> profiles author FK with volunteers when possible.
-do $$
-declare r record;
-begin
-  if to_regclass('public.posts') is not null then
-    for r in
-      select c.conname
-      from pg_constraint c
-      join pg_attribute a on a.attrelid=c.conrelid and a.attnum=any(c.conkey)
-      where c.conrelid='public.posts'::regclass and c.contype='f' and a.attname='author_id'
-    loop
-      execute format('alter table public.posts drop constraint %I',r.conname);
-    end loop;
-  end if;
-end $$;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid='public.posts'::regclass and conname='posts_author_id_fkey'
-  ) then
-    alter table public.posts add constraint posts_author_id_fkey
-      foreign key (author_id) references public.volunteers(id) on delete set null;
-  end if;
-end $$;
-
-alter table public.posts enable row level security;
-drop policy if exists posts_public_read on public.posts;
-create policy posts_public_read on public.posts for select to anon,authenticated
-using (is_published=true or public.is_admin(auth.uid()));
-drop policy if exists posts_admin_write on public.posts;
-create policy posts_admin_write on public.posts for all to authenticated
-using (public.is_admin(auth.uid())) with check (public.is_admin(auth.uid()));
-
--- ============================================================
--- 6. HOMEPAGE SETTINGS
--- ============================================================
-create table if not exists public.site_settings (
-  id integer primary key default 1,
-  college_name text default 'Youth Volunteers • RP Gishari College',
-  logo_url text,
-  hero_title text default 'Young people serve, lead and build a stronger Rwanda.',
-  hero_subtitle text default 'A living digital home where Youth Volunteers show what they did, how they did it, what they learned and the difference they made.',
-  hero_text text default 'Youth Volunteer of RP Gishari College is a student-led community for volunteering, learning, leadership, innovation and practical service.',
-  updated_at timestamptz not null default now()
-);
-alter table public.site_settings enable row level security;
-drop policy if exists settings_public_read on public.site_settings;
-create policy settings_public_read on public.site_settings for select to anon,authenticated using (true);
-drop policy if exists settings_admin_write on public.site_settings;
-create policy settings_admin_write on public.site_settings for all to authenticated
-using (public.is_admin(auth.uid())) with check (public.is_admin(auth.uid()));
-insert into public.site_settings(id) values(1) on conflict(id) do nothing;
-
--- ============================================================
--- 7. STORAGE FOR IMAGES / AUDIO / VIDEO / DOCUMENTS
--- ============================================================
-insert into storage.buckets(id,name,public)
-values('youth-media','youth-media',true)
-on conflict(id) do nothing;
-
-drop policy if exists youth_media_public_read on storage.objects;
-create policy youth_media_public_read on storage.objects
-for select to anon,authenticated
-using (bucket_id='youth-media');
-
-drop policy if exists youth_media_admin_insert on storage.objects;
-create policy youth_media_admin_insert on storage.objects
-for insert to authenticated
-with check (bucket_id='youth-media' and public.is_admin(auth.uid()));
-
-drop policy if exists youth_media_admin_update on storage.objects;
-create policy youth_media_admin_update on storage.objects
-for update to authenticated
-using (bucket_id='youth-media' and public.is_admin(auth.uid()))
-with check (bucket_id='youth-media' and public.is_admin(auth.uid()));
-
-drop policy if exists youth_media_admin_delete on storage.objects;
-create policy youth_media_admin_delete on storage.objects
-for delete to authenticated
-using (bucket_id='youth-media' and public.is_admin(auth.uid()));
-
--- ============================================================
--- 8. UPDATED_AT HELPER
--- ============================================================
-create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
-begin new.updated_at=now(); return new; end;
-$$;
-
-drop trigger if exists volunteers_set_updated_at on public.volunteers;
-create trigger volunteers_set_updated_at before update on public.volunteers
-for each row execute function public.set_updated_at();
-
-drop trigger if exists posts_set_updated_at on public.posts;
-create trigger posts_set_updated_at before update on public.posts
-for each row execute function public.set_updated_at();
-
-drop trigger if exists settings_set_updated_at on public.site_settings;
-create trigger settings_set_updated_at before update on public.site_settings
-for each row execute function public.set_updated_at();
 `;
 
 function q(id){return document.getElementById(id)}
 function text(id,v){const e=q(id);if(e)e.textContent=v??''}
 function message(el,txt,type=''){if(!el)return;el.textContent=txt;el.className='form-message '+type}
-function setLoading(btn, isLoading, msg=''){if(!btn)return;if(isLoading){btn.dataset.txt=btn.textContent;btn.textContent=msg;btn.disabled=true}else{if(btn.dataset.txt)btn.textContent=btn.dataset.txt;btn.disabled=false}}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function csvCell(v){return '"'+String(v??'').replaceAll('"','""')+'"'}
 function downloadCsv(filename,rows){if(!rows.length){alert('No records match this selection.');return}const headers=Object.keys(rows[0]);const csv=[headers.map(csvCell).join(','),...rows.map(r=>headers.map(h=>csvCell(r[h])).join(','))].join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
@@ -531,7 +200,6 @@ function renderVolunteerTable(){const body=q('volunteerTable');if(!body)return;c
 async function setVolunteerStatus(id,status){const {error}=await supabase.from('volunteers').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert(error.message);else await Promise.all([loadVolunteers(),loadAdmins()])}
 async function changeRole(id,role){const me=await currentUser();const target=volunteersCache.find(x=>x.id===id);if(!target)return;if(target.auth_user_id===me?.id&&role==='volunteer'){alert('Do not remove admin access from your own account. Another admin can change your role.');return}if(role==='admin'&&!target.auth_user_id){alert('This volunteer has no login account yet. Ask them to register/login with this email first.');return}const {error}=await supabase.from('volunteers').update({role,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert(error.message);else await Promise.all([loadVolunteers(),loadAdmins()])}
 async function loadAdmins(){const list=q('adminList');if(!list)return;const {data,error}=await supabase.from('volunteers').select('*').eq('role','admin').eq('status','active').order('created_at');if(error){list.innerHTML=`<div class="admin-item">${esc(error.message)}</div>`;return}list.innerHTML=(data||[]).map(x=>`<div class="admin-item"><div class="admin-item-top"><h3>${esc(x.full_name)}</h3><span class="status-badge status-active">Admin</span></div><p>${esc(x.email)} • ${esc(x.phone)}<br>${esc(x.department)} • ${esc(x.year_level)}</p></div>`).join('')||'<div class="admin-item">No administrators yet.</div>'}
-async function addManualVolunteer(e){e.preventDefault();if(!await ensureAdmin(await currentUser()))return;const f=e.currentTarget,fd=new FormData(f);const payload={full_name:String(fd.get('full_name')).trim(),email:String(fd.get('email')).trim().toLowerCase(),phone:String(fd.get('phone')).trim(),sex:String(fd.get('sex')),student_id:String(fd.get('student_id')||'').trim()||null,year_level:String(fd.get('year_level')),department:String(fd.get('department')).trim(),option_name:String(fd.get('option_name')).trim(),academic_year:String(fd.get('academic_year')||'').trim()||null,district:String(fd.get('district')||'').trim()||null,availability:String(fd.get('availability')||'Weekly'),preferred_area:String(fd.get('preferred_area')||'').trim()||null,skills:String(fd.get('skills')||'').trim()||null,emergency_contact:String(fd.get('emergency_contact')||'').trim()||null,emergency_phone:String(fd.get('emergency_phone')||'').trim()||null,bank_name:String(fd.get('bank_name')||'').trim()||null,bank_account_name:String(fd.get('bank_account_name')||'').trim()||null,bank_account_number:String(fd.get('bank_account_number')||'').trim()||null,motivation:String(fd.get('motivation')||'').trim(),agreement_conduct:fd.get('agreement_conduct')==='on',agreement_data:fd.get('agreement_data')==='on',media_consent:fd.get('media_consent')==='on',status:String(fd.get('status')||'pending'),role:'volunteer'};const {error}=await supabase.from('volunteers').insert(payload);if(error){message(q('manualVolunteerMessage'),error.message,'error');return}message(q('manualVolunteerMessage'),'Volunteer record added to Supabase. They can use Volunteer Login → Register with this same email to claim the record and create their password.','success');f.reset();loadVolunteers()}
 async function loadIdeas(){const list=q('ideaList');if(!list)return;const {data,error}=await supabase.from('ideas').select('*').order('created_at',{ascending:false}).limit(100);if(error){list.innerHTML=`<div class="admin-item">${esc(error.message)}</div>`;return}text('dashIdeas',(data||[]).filter(x=>x.status==='new').length);list.innerHTML=(data||[]).map(x=>`<div class="admin-item"><div class="admin-item-top"><h3>${esc((x.idea||'').slice(0,75))}</h3><span class="status-badge ${x.status==='new'?'status-pending':'status-active'}">${esc(x.status)}</span></div><p>${esc(x.name||'Anonymous')} ${x.email?'• '+esc(x.email):''}<br>${dateText(x.created_at)}</p><div class="admin-actions">${x.status!=='reviewed'?`<button data-idea="${x.id}" data-ideastatus="reviewed">Mark reviewed</button>`:''}${x.status!=='archived'?`<button class="danger" data-idea="${x.id}" data-ideastatus="archived">Archive</button>`:''}</div></div>`).join('')||'<div class="admin-item">No ideas yet.</div>';list.querySelectorAll('[data-idea]').forEach(b=>b.onclick=async()=>{await supabase.from('ideas').update({status:b.dataset.ideastatus}).eq('id',b.dataset.idea);loadIdeas()})}
 async function loadPosts(){const list=q('adminPostList');if(!list)return;const {data,error}=await supabase.from('posts').select('*').order('created_at',{ascending:false});if(error){list.innerHTML=`<div class="admin-item">${esc(error.message)}</div>`;return}list.innerHTML=(data||[]).map(r=>`<div class="admin-item"><div class="admin-item-top"><h3>${esc(r.title)}</h3><span class="status-badge ${r.is_published?'status-active':'status-pending'}">${r.is_published?'Published':'Draft'}</span></div><p>${esc(r.category)} • ${dateText(r.created_at)}</p><div class="admin-actions"><button data-edit="${r.id}">Edit</button><button data-toggle="${r.id}">${r.is_published?'Unpublish':'Publish'}</button><button class="danger" data-delete="${r.id}">Delete</button></div></div>`).join('')||'<div class="admin-item">No stories yet.</div>';list.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>fillPost(data.find(x=>x.id===b.dataset.edit)));list.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>togglePost(data.find(x=>x.id===b.dataset.toggle)));list.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deletePost(data.find(x=>x.id===b.dataset.delete)))}
 function fillPost(r){q('postId').value=r.id;q('postTitle').value=r.title;q('postCategory').value=r.category;q('postExcerpt').value=r.excerpt||'';q('postContent').value=r.content||'';q('postPublished').value=String(r.is_published);window.scrollTo({top:q('postManagement').offsetTop-70,behavior:'smooth'})}
