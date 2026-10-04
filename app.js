@@ -269,9 +269,18 @@ create table if not exists public.ideas (
 alter table public.ideas enable row level security;
 drop policy if exists ideas_public_insert on public.ideas;
 create policy ideas_public_insert on public.ideas for insert to anon,authenticated with check (true);
-drop policy if exists ideas_admin_read on public.ideas;
-create policy ideas_admin_read on public.ideas for select,update,delete to authenticated
-using (public.is_admin(auth.uid())) with check (public.is_admin(auth.uid()));
+drop policy if exists ideas_admin_select on public.ideas;
+create policy ideas_admin_select on public.ideas for select to authenticated
+using (public.is_admin(auth.uid()));
+
+drop policy if exists ideas_admin_update on public.ideas;
+create policy ideas_admin_update on public.ideas for update to authenticated
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists ideas_admin_delete on public.ideas;
+create policy ideas_admin_delete on public.ideas for delete to authenticated
+using (public.is_admin(auth.uid()));
 
 create or replace function public.get_public_stats()
 returns json
@@ -452,7 +461,66 @@ async function loadPublicSettings(){if(!supabase)return;const {data}=await supab
 function mediaHtml(row){if(!row.media_url)return'';const type=row.media_type||'';if(type.startsWith('video/'))return `<video controls preload="metadata" style="width:100%;max-height:260px"><source src="${esc(row.media_url)}" type="${esc(type)}"></video>`;if(type.startsWith('audio/'))return `<audio controls style="width:100%"><source src="${esc(row.media_url)}" type="${esc(type)}"></audio>`;if(type.startsWith('image/'))return `<img src="${esc(row.media_url)}" alt="${esc(row.title)}" loading="lazy">`;return `<a class="story-link" href="${esc(row.media_url)}" target="_blank" rel="noopener">Open ${esc(row.media_name||'resource')}</a>`}
 async function loadStories(){const grid=q('storiesGrid');if(!grid||!supabase)return;const {data,error}=await supabase.from('posts').select('*').eq('is_published',true).order('published_at',{ascending:false}).limit(12);if(error){grid.innerHTML='<div class="loading-box">Stories are temporarily unavailable.</div>';return}grid.innerHTML=(data||[]).map(r=>`<article class="story-card"><div class="story-media">${r.cover_url?`<img src="${esc(r.cover_url)}" alt="${esc(r.title)}" loading="lazy">`:''}<span class="story-badge">${esc(r.category)}</span></div><div class="story-body"><h3>${esc(r.title)}</h3><p>${esc(r.excerpt||r.content||'')}</p>${r.media_url?mediaHtml(r):''}<div class="story-link">Published ${dateText(r.published_at||r.created_at)}</div></div></article>`).join('')||'<div class="loading-box">No published stories yet.</div>'}
 
-async function submitRegistration(e){e.preventDefault();const f=e.currentTarget;const fd=new FormData(f);const pass=String(fd.get('password')||''),pass2=String(fd.get('password2')||'');if(pass!==pass2){message(q('registrationMessage'),'Passwords do not match.','error');return}if(pass.length<8){message(q('registrationMessage'),'Password must be at least 8 characters.','error');return}await initSupabaseClient();if(!supabase){message(q('registrationMessage'),'Supabase is not configured yet. Add the project URL and public/anon key in app.js.','error');return}const meta={};fd.forEach((v,k)=>{if(k!=='password'&&k!=='password2')meta[k]=typeof v==='string'?v.trim():v});for(const k of ['agreement_conduct','agreement_data','media_consent'])meta[k]=fd.get(k)==='on';const {data,error}=await supabase.auth.signUp({email:String(fd.get('email')).trim().toLowerCase(),password:pass,options:{data:meta}});if(error){message(q('registrationMessage'),error.message,'error');return}if(data.user){message(q('registrationMessage'),'Application received. Your record is Pending until an administrator verifies and approves it. If an administrator already created your record with this email, your login is now linked to that record.','success');f.reset();showPortalTab('login')}else message(q('registrationMessage'),'Application submitted.','success')}
+async function submitRegistration(e){
+  e.preventDefault();
+  const form=e.currentTarget;
+  const button=form.querySelector('button[type="submit"]');
+  const out=q('registrationMessage');
+  const fd=new FormData(form);
+  const email=String(fd.get('email')||'').trim().toLowerCase();
+  const pass=String(fd.get('password')||'');
+  const pass2=String(fd.get('password2')||'');
+
+  try{
+    if(!email){ throw new Error('Please enter your email address.'); }
+    if(pass.length<8){ throw new Error('Password must be at least 8 characters.'); }
+    if(pass!==pass2){ throw new Error('Passwords do not match.'); }
+    if(!fd.get('agreement_conduct') || !fd.get('agreement_data')){
+      throw new Error('Please accept the required volunteer agreements.');
+    }
+
+    setLoading(button,true,'Submitting application…');
+    const client=await initSupabaseClient();
+    if(!client){
+      throw new Error('Supabase is not configured. Check SUPABASE_URL and SUPABASE_ANON_KEY in app.js.');
+    }
+
+    const meta={};
+    fd.forEach((value,key)=>{
+      if(key!=='password' && key!=='password2'){
+        meta[key]=typeof value==='string' ? value.trim() : value;
+      }
+    });
+    meta.agreement_conduct=fd.get('agreement_conduct')==='on';
+    meta.agreement_data=fd.get('agreement_data')==='on';
+    meta.media_consent=fd.get('media_consent')==='on';
+
+    const {data,error}=await client.auth.signUp({
+      email,
+      password:pass,
+      options:{data:meta}
+    });
+
+    if(error) throw error;
+
+    message(
+      out,
+      data?.user
+        ? 'Application received. Your account is Pending until an administrator approves it.'
+        : 'Application submitted successfully.',
+      'success'
+    );
+
+    form.reset();
+    setTimeout(()=>showPortalTab('login'),900);
+  }catch(error){
+    console.error('Volunteer registration error:',error);
+    message(out,error?.message||'Unable to submit the volunteer application. Please try again.','error');
+  }finally{
+    setLoading(button,false);
+  }
+}
+
 async function submitIdea(e){e.preventDefault();const f=e.currentTarget,fd=new FormData(f);await initSupabaseClient();if(!supabase){message(q('ideaMessage'),'Supabase is not configured.','error');return}const {error}=await supabase.from('ideas').insert({name:String(fd.get('name')||'').trim()||null,email:String(fd.get('email')||'').trim()||null,idea:String(fd.get('idea')||'').trim()});message(q('ideaMessage'),error?error.message:'Thank you — your idea has been received.',error?'error':'success');if(!error)f.reset()}
 
 async function submitVolunteerLogin(e){e.preventDefault();await initSupabaseClient();if(!supabase){message(q('loginMessage'),'Supabase is not configured.','error');return}const fd=new FormData(e.currentTarget);const {data,error}=await supabase.auth.signInWithPassword({email:String(fd.get('email')).trim().toLowerCase(),password:String(fd.get('password'))});if(error){message(q('loginMessage'),error.message,'error');return}const p=await currentVolunteer(data.user);if(!p){message(q('loginMessage'),'Your volunteer record is not ready yet. Contact the program administrator.','error');await supabase.auth.signOut();return}if(p.status==='pending'){message(q('loginMessage'),'Your volunteer application is still Pending admin approval.','error');await supabase.auth.signOut();return}if(p.status==='suspended'){message(q('loginMessage'),'Your volunteer account is suspended. Please contact the program administrator.','error');await supabase.auth.signOut();return}if(p.role==='admin'){location.href='admin.html';return}await showVolunteerAccount(p)}
