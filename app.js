@@ -2,8 +2,8 @@
    Frontend only uses the Supabase public/anon (publishable) key.
    Never put a service_role key in this file.
 */
-const SUPABASE_URL = 'PASTE_SUPABASE_PROJECT_URL';
-const SUPABASE_ANON_KEY = 'PASTE_SUPABASE_PUBLISHABLE_OR_ANON_KEY';
+const SUPABASE_URL = 'https://dbxzornmwqtpbuzxghsx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRieHpvcm5td3F0cGJ1enhnaHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzg2MTQsImV4cCI6MjEwNjcxNDYxNH0.tSaf11mNl_woKKqsvPlPdepI7ly28pZYMr0UJ2uSIpY';
 const hasConfig = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('PASTE_');
 let supabase = null;
 let supabaseLoadPromise = null;
