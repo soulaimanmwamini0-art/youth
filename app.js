@@ -6,7 +6,6 @@ const SUPABASE_URL = 'https://dbxzornmwqtpbuzxghsx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRieHpvcm5td3F0cGJ1enhnaHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzg2MTQsImV4cCI6MjEwNjcxNDYxNH0.tSaf11mNl_woKKqsvPlPdepI7ly28pZYMr0UJ2uSIpY';
 const hasConfig = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('PASTE_');
 let supabase = null;
-let supabaseLoadPromise = null;
 
 function initSupabaseClient(){
   if(supabase) return Promise.resolve(supabase);
@@ -17,34 +16,7 @@ function initSupabaseClient(){
     return Promise.resolve(supabase);
   }
   
-  if(supabaseLoadPromise) return supabaseLoadPromise;
-  
-  supabaseLoadPromise = new Promise((resolve,reject)=>{
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-    script.async = true;
-    
-    script.onload = () => {
-      let attempts = 0;
-      const timer = setInterval(() => {
-        attempts++;
-        const sb = window.supabase?.createClient ? window.supabase : window.supabase?.supabase;
-        
-        if(sb && sb.createClient){
-          clearInterval(timer);
-          supabase = sb.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-          resolve(supabase);
-        } else if (attempts > 50) { // Itanga warning nyuma y'amasegonda 5
-          clearInterval(timer);
-          reject(new Error('Internet irimo gutinda cyangwa Supabase ntabwo yafungutse neza. Ongera ugerageze.'));
-        }
-      }, 100);
-    };
-    
-    script.onerror = () => reject(new Error('Ntabwo bibashije guhuza na Supabase. Reba connection ya internet.'));
-    document.head.appendChild(script);
-  });
-  return supabaseLoadPromise;
+  return Promise.reject(new Error('Internet irimo gutinda cyangwa Supabase ntabwo yabonetse. Reba niba washyizemo script ya Supabase muri HTML zawe.'));
 }
 
 const isAdminPage = document.body?.dataset.page === 'admin';
