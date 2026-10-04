@@ -7,27 +7,30 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const hasConfig = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('PASTE_');
 let supabase = null;
 let supabaseLoadPromise = null;
+
 function initSupabaseClient(){
   if(supabase) return Promise.resolve(supabase);
   if(!hasConfig) return Promise.resolve(null);
   if(window.supabase?.createClient){
-    supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     return Promise.resolve(supabase);
   }
   if(supabaseLoadPromise) return supabaseLoadPromise;
-  supabaseLoadPromise=new Promise((resolve,reject)=>{
-    const script=document.createElement('script');
-    // FIXED: Switched to unpkg to reliably serve the UMD browser build
-    script.src='https://unpkg.com/@supabase/supabase-js@2';
-    script.async=true;
-    script.onload=()=>{
-      try{
+  supabaseLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    // FIXED: Using the official jsdelivr NPM path which guarantees the UMD browser bundle
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.async = true;
+    script.onload = () => {
+      try {
         if(!window.supabase?.createClient) throw new Error('Supabase SDK loaded but createClient is unavailable.');
-        supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         resolve(supabase);
-      }catch(err){reject(err)}
+      } catch(err) { 
+        reject(err); 
+      }
     };
-    script.onerror=()=>reject(new Error('Unable to load the Supabase browser library.'));
+    script.onerror = () => reject(new Error('Unable to load the Supabase browser library.'));
     document.head.appendChild(script);
   });
   return supabaseLoadPromise;
@@ -429,24 +432,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists settings_set_updated_at on public.site_settings;
 create trigger settings_set_updated_at before update on public.site_settings
 for each row execute function public.set_updated_at();
-
--- ============================================================
--- 9. FIRST ADMIN BOOTSTRAP
--- ============================================================
--- 1) Create the first user in Supabase Authentication.
--- 2) Then run the following with that email:
--- update public.volunteers
--- set role='admin', status='active', updated_at=now()
--- where lower(email)=lower('YOUR-FIRST-ADMIN-EMAIL');
---
--- Existing admins can then approve volunteers and promote active, linked
--- volunteers to admin. Volunteer Login never grants admin by itself.
 `;
 
 function q(id){return document.getElementById(id)}
 function text(id,v){const e=q(id);if(e)e.textContent=v??''}
 function message(el,txt,type=''){if(!el)return;el.textContent=txt;el.className='form-message '+type}
-// FIXED: Added missing setLoading utility function
 function setLoading(btn, isLoading, msg=''){if(!btn)return;if(isLoading){btn.dataset.txt=btn.textContent;btn.textContent=msg;btn.disabled=true}else{if(btn.dataset.txt)btn.textContent=btn.dataset.txt;btn.disabled=false}}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function csvCell(v){return '"'+String(v??'').replaceAll('"','""')+'"'}
