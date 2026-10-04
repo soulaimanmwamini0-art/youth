@@ -1,5 +1,14 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin • Youth Volunteers</title><meta name="theme-color" content="#0a2d5e"><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script defer src="app.js"></script></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin • Youth Volunteers</title>
+<meta name="theme-color" content="#0a2d5e">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="app.js"></script>
+</head>
 <body data-page="admin">
 <div class="admin-top"><div class="shell admin-top-inner"><div><span class="eyebrow-light">RP GISHARI COLLEGE</span><b>Youth Volunteers Administration</b></div><div class="admin-user"><span id="adminName">—</span><button id="logoutBtn" class="btn btn-small btn-light">Log out</button></div></div></div>
 <main class="admin-main shell">
@@ -13,4 +22,5 @@
     <section class="admin-card"><div class="admin-section-head"><div><span class="tag">HOMEPAGE</span><h2>Public wording</h2></div></div><form id="settingsForm" class="form-grid"><div class="form-row"><label>College / program name<input id="setCollegeName"></label><label>Logo URL (optional)<input id="setLogoUrl"></label></div><label>Hero title<textarea id="setHeroTitle" rows="2"></textarea></label><label>Hero subtitle<textarea id="setHeroSubtitle" rows="3"></textarea></label><label>About text<textarea id="setHeroText" rows="4"></textarea></label><button class="btn btn-blue">Save homepage settings</button><div id="settingsMessage" class="form-message"></div></form></section>
   </section>
 </main><footer class="site-footer"><div class="shell copyright">Copyright © <span id="year"></span> Youth Volunteer of RP Gishari College. All rights reserved. Developed by Soulaiman MWAMINI.</div></footer>
-</body></html>
+</body>
+</html>
