@@ -16,7 +16,7 @@ function initSupabaseClient(){
     return Promise.resolve(supabase);
   }
   
-  return Promise.reject(new Error('Internet irimo gutinda cyangwa Supabase ntabwo yabonetse. Reba niba washyizemo script ya Supabase muri HTML zawe.'));
+  return Promise.reject(new Error('Error'));
 }
 
 const isAdminPage = document.body?.dataset.page === 'admin';
