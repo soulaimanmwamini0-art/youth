@@ -8,8 +8,8 @@ const hasConfig = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && !SUPAB
 let supabase = null;
 let supabaseLoadPromise = null;
 const SUPABASE_BROWSER_SDK_URLS = [
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
-  'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://unpkg.com/@supabase/supabase-js@2'
 ];
 
 function getSupabaseCreateClient(){
@@ -30,13 +30,7 @@ function loadSupabaseBrowserSdk(){
       const ready=createSupabaseClient();
       if(ready){resolve(ready);return;}
       if(index>=SUPABASE_BROWSER_SDK_URLS.length){
-        import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm')
-          .then(mod=>{
-            if(!mod || typeof mod.createClient!=='function') throw new Error('Supabase client factory is unavailable.');
-            supabase=mod.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-            resolve(supabase);
-          })
-          .catch(()=>reject(new Error('Unable to load the Supabase browser library.')));
+        reject(new Error('Supabase browser library could not be loaded.'));
         return;
       }
       const script=document.createElement('script');
@@ -68,9 +62,13 @@ function initSupabaseClient(){
     return Promise.resolve(supabase);
   }
   if(supabaseLoadPromise) return supabaseLoadPromise;
-  supabaseLoadPromise=loadSupabaseBrowserSdk();
+  supabaseLoadPromise=loadSupabaseBrowserSdk().then(client=>{
+    supabase=client;
+    return client;
+  });
   return supabaseLoadPromise;
 }
+
 
 const isAdminPage = document.body?.dataset.page === 'admin';
 
@@ -586,7 +584,7 @@ function showPortalTab(tab){q('portalAccountPanel')?.classList.add('hidden');q('
 function wirePortal(){document.querySelectorAll('[data-portal-tab]').forEach(b=>b.addEventListener('click',()=>showPortalTab(b.dataset.portalTab)));q('portalLogout')?.addEventListener('click',async()=>{await supabase?.auth.signOut();showPortalTab('login');q('portalAccountPanel')?.classList.add('hidden')});q('registrationForm')?.addEventListener('submit',submitRegistration);q('volunteerLoginForm')?.addEventListener('submit',submitVolunteerLogin)}
 function wireMenu(){q('menuToggle')?.addEventListener('click',()=>q('mainNav')?.classList.toggle('open'));document.querySelectorAll('#mainNav a').forEach(a=>a.addEventListener('click',()=>q('mainNav')?.classList.remove('open')))}
 async function loadPublic(){text('year',new Date().getFullYear());q('ideaForm')?.addEventListener('submit',submitIdea);if(hasConfig){try{await initSupabaseClient()}catch{}}await Promise.all([publicStats(),loadStories(),loadPublicSettings()]);}
-async function bootVolunteerPortal(){text('portalYear',new Date().getFullYear());wirePortal();showPortalTab('login');if(!hasConfig){message(q('loginMessage'),'Volunteer login is ready. Add your Supabase project URL and public/anon key in app.js to connect accounts.','error');return}try{await initSupabaseClient();await loadVolunteerAccount()}catch(err){message(q('loginMessage'),err.message||'Supabase could not be loaded. The form is still available.','error')}}
+async function bootVolunteerPortal(recoveredEmail=''){text('portalYear',new Date().getFullYear());wirePortal();showPortalTab('login');if(recoveredEmail&&q('volunteerLoginForm'))q('volunteerLoginForm').elements.email.value=recoveredEmail;if(!hasConfig){message(q('loginMessage'),'Volunteer login is ready. Add your Supabase project URL and public/anon key in app.js to connect accounts.','error');return}try{await initSupabaseClient();await loadVolunteerAccount()}catch(err){message(q('loginMessage'),err.message||'Supabase could not be loaded. The form is still available.','error')}}
 
 let volunteersCache=[];
 async function loadVolunteers(){const {data,error}=await supabase.from('volunteers').select('*').order('created_at',{ascending:false});if(error){q('volunteerTable').innerHTML=`<tr><td colspan="7">${esc(error.message)}</td></tr>`;return}volunteersCache=data||[];text('dashRegistered',volunteersCache.length);text('dashPending',volunteersCache.filter(x=>x.status==='pending').length);text('dashActive',volunteersCache.filter(x=>x.status==='active').length);renderVolunteerTable()}
@@ -610,7 +608,28 @@ function exportVolunteers(level){const rows=volunteersCache.filter(v=>level==='a
 
 async function bootAdmin(){text('year',new Date().getFullYear());q('copySqlBtn')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(SETUP_SQL);alert('Supabase setup SQL copied.')}catch{alert(SETUP_SQL)}});try{await initSupabaseClient()}catch(err){message(q('loginMessage'),err.message||'Unable to load Supabase.','error');return}if(!supabase){message(q('loginMessage'),'Supabase is not configured. Add URL and public/anon key in app.js.','error');return}const login=q('loginView'),dash=q('dashboardView');const show=async()=>{const u=await currentUser();if(!u){login.classList.remove('hidden');dash.classList.add('hidden');q('logoutBtn').classList.add('hidden');return}const p=await ensureAdmin(u);if(!p){login.classList.remove('hidden');dash.classList.add('hidden');q('logoutBtn').classList.remove('hidden');message(q('loginMessage'),'This account is not an active administrator. Volunteer registration never grants admin access.','error');return}login.classList.add('hidden');dash.classList.remove('hidden');q('logoutBtn').classList.remove('hidden');text('adminName',p.full_name);text('adminNameLarge',p.full_name);text('adminEmail',p.email);await Promise.all([loadVolunteers(),loadAdmins(),loadIdeas(),loadPosts(),loadSettingsAdmin()])};q('loginForm')?.addEventListener('submit',async e=>{e.preventDefault();message(q('loginMessage'),'Signing in…');const {error}=await supabase.auth.signInWithPassword({email:q('loginEmail').value.trim().toLowerCase(),password:q('loginPassword').value});if(error)return message(q('loginMessage'),error.message,'error');await show()});q('logoutBtn')?.addEventListener('click',async()=>{await supabase.auth.signOut();location.reload()});q('volunteerSearch')?.addEventListener('input',renderVolunteerTable);q('volunteerStatusFilter')?.addEventListener('change',renderVolunteerTable);q('volunteerYearFilter')?.addEventListener('change',renderVolunteerTable);document.querySelectorAll('[data-export]').forEach(b=>b.addEventListener('click',()=>exportVolunteers(b.dataset.export)));q('manualVolunteerForm')?.addEventListener('submit',addManualVolunteer);q('postForm')?.addEventListener('submit',savePost);q('resetPostBtn')?.addEventListener('click',clearPost);q('settingsForm')?.addEventListener('submit',saveSettings);supabase.auth.onAuthStateChange(()=>{show()});await show()}
 
-function showPortalMode(){const home=q('publicHome'),portal=q('volunteerPortal');home?.classList.add('hidden');portal?.classList.remove('hidden');q('mainNav')?.classList.remove('open');document.title='Volunteer Login • RP Gishari College';bootVolunteerPortal()}
+function sanitizeAuthQuery(){
+  const url=new URL(location.href);
+  const hadLegacyCredentials=url.searchParams.has('email') || url.searchParams.has('password') || url.searchParams.has('password2') || url.searchParams.has('passwd');
+  const email=url.searchParams.get('email')||'';
+  if(!hadLegacyCredentials) return {hadLegacyCredentials:false,email:''};
 
-if(document.body?.dataset.page==='public'){wireMenu();const params=new URLSearchParams(location.search);if(params.get('portal')==='volunteer')showPortalMode();else loadPublic()}
+  url.searchParams.delete('email');
+  url.searchParams.delete('password');
+  url.searchParams.delete('password2');
+  url.searchParams.delete('passwd');
+
+  if(url.pathname.endsWith('/index.html') && !url.searchParams.has('portal')){
+    url.searchParams.set('portal','volunteer');
+  }
+
+  const cleanQuery=url.searchParams.toString();
+  const cleanUrl=url.pathname+(cleanQuery?`?${cleanQuery}`:'')+url.hash;
+  history.replaceState(null,document.title,cleanUrl);
+  return {hadLegacyCredentials:true,email};
+}
+
+function showPortalMode(recoveredEmail=''){const home=q('home'),portal=q('volunteerPortal');home?.classList.add('hidden');portal?.classList.remove('hidden');q('mainNav')?.classList.remove('open');document.title='Volunteer Login • RP Gishari College';bootVolunteerPortal(recoveredEmail)}
+
+if(document.body?.dataset.page==='public'){wireMenu();const legacy=sanitizeAuthQuery();const params=new URLSearchParams(location.search);if(params.get('portal')==='volunteer')showPortalMode(legacy.email);else loadPublic()}
 if(isAdminPage){bootAdmin()}
