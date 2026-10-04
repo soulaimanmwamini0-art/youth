@@ -1,16 +1,275 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin • Youth Volunteers</title><meta name="theme-color" content="#0a2d5e"><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script defer src="app.js"></script></head>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin • Youth Volunteers</title>
+  <meta name="theme-color" content="#0a2d5e">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Supabase ihamagarwa hano mbere ya app.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="app.js"></script>
+</head>
 <body data-page="admin">
-<div class="admin-top"><div class="shell admin-top-inner"><div><span class="eyebrow-light">RP GISHARI COLLEGE</span><b>Youth Volunteers Administration</b></div><div class="admin-user"><span id="adminName">—</span><button id="logoutBtn" class="btn btn-small btn-light">Log out</button></div></div></div>
-<main class="admin-main shell">
-  <section id="loginView" class="admin-login"><div class="login-hero"><span class="tag">AUTHORIZED ACCESS</span><h1>Volunteer administration.</h1><p>Only accounts whose profile role is <b>admin</b> and status is <b>approved</b> can enter this dashboard. Volunteer registration never grants admin access.</p></div><div class="login-card"><form id="loginForm" class="form-grid"><label>Email<input id="loginEmail" type="email" required></label><label>Password<input id="loginPassword" type="password" required></label><button class="btn btn-blue btn-block">Sign in as admin</button><div id="loginMessage" class="form-message"></div></form><button id="copySqlBtn" class="text-button" type="button">Copy Supabase setup SQL</button></div></section>
-  <section id="dashboardView" class="hidden">
-    <div class="dashboard-title"><div><span class="tag">CONTROL CENTER</span><h1>Welcome, <span id="adminNameLarge">Admin</span>.</h1><p id="adminEmail">—</p></div><a href="index.html" class="btn btn-outline">View website</a></div>
-    <div class="admin-stats"><article><span>Registered</span><strong id="dashRegistered">0</strong></article><article><span>Pending</span><strong id="dashPending">0</strong></article><article><span>Active</span><strong id="dashActive">0</strong></article><article><span>New ideas</span><strong id="dashIdeas">0</strong></article></div>
-    <section class="admin-card"><div class="admin-section-head"><div><span class="tag">VOLUNTEERS</span><h2>Membership review & export</h2></div><div class="export-row"><button data-export="all" class="btn btn-blue btn-small">Download all</button><button data-export="Y1" class="btn btn-outline btn-small">Y1</button><button data-export="Y2" class="btn btn-outline btn-small">Y2</button><button data-export="Y3" class="btn btn-outline btn-small">Y3</button><button data-export="B-Tech" class="btn btn-outline btn-small">B-Tech</button></div></div><div class="toolbar"><input id="volunteerSearch" placeholder="Search name, email, phone, department…"><select id="volunteerStatusFilter"><option value="all">All statuses</option><option value="pending">Pending</option><option value="active">Active</option><option value="suspended">Suspended</option></select><select id="volunteerYearFilter"><option value="all">All levels</option><option>Y1</option><option>Y2</option><option>Y3</option><option>B-Tech</option></select></div><div class="table-wrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Study</th><th>Bank details</th><th>Status</th><th>Role</th><th>Action</th></tr></thead><tbody id="volunteerTable"></tbody></table></div></section>
-    <section class="admin-card manual-volunteer-card"><div class="admin-section-head"><div><span class="tag">ADD VOLUNTEER</span><h2>Write a new volunteer record</h2><p>This creates the volunteer directly in Supabase. They can later use Volunteer Login → Register with the same email to claim the record and create their password.</p></div></div><form id="manualVolunteerForm" class="form-grid"><div class="form-row"><label>Full name<input name="full_name" required></label><label>Email<input name="email" type="email" required></label></div><div class="form-row"><label>Telephone<input name="phone" type="tel" required></label><label>Sex<select name="sex" required><option>Female</option><option>Male</option><option>Other</option><option>Prefer not to say</option></select></label></div><div class="form-row"><label>Student ID<input name="student_id"></label><label>Year / Level<select name="year_level" required><option>Y1</option><option>Y2</option><option>Y3</option><option>B-Tech</option></select></label></div><div class="form-row"><label>Department<input name="department" required></label><label>Option / Specialization<input name="option_name" required></label></div><div class="form-row"><label>Academic year<input name="academic_year"></label><label>District<input name="district"></label></div><div class="form-row"><label>Availability<select name="availability"><option>Weekly</option><option>Monthly</option><option>Flexible</option></select></label><label>Preferred area<input name="preferred_area"></label></div><label>Skills / interests<textarea name="skills" rows="2"></textarea></label><div class="form-row"><label>Emergency contact<input name="emergency_contact"></label><label>Emergency telephone<input name="emergency_phone" type="tel"></label></div><div class="form-row"><label>Bank name<input name="bank_name"></label><label>Name on bank account<input name="bank_account_name"></label></div><label>Bank account number<input name="bank_account_number" inputmode="numeric"></label><label>Motivation / reason for volunteering<textarea name="motivation" rows="3" required></textarea></label><div class="agreement-box"><label><input type="checkbox" name="agreement_conduct" required> Volunteer agreement accepted.</label><label><input type="checkbox" name="agreement_data" required> Data-processing agreement accepted.</label><label><input type="checkbox" name="media_consent"> Media consent granted.</label></div><div class="form-row"><label>Initial status<select name="status"><option value="pending">Pending</option><option value="active">Active</option><option value="suspended">Suspended</option></select></label><div></div></div><button class="btn btn-red">Save volunteer to Supabase</button><div id="manualVolunteerMessage" class="form-message"></div></form></section><section class="admin-grid-two"><section class="admin-card"><div class="admin-section-head"><div><span class="tag">ADMIN TEAM</span><h2>Admins have equal access.</h2></div></div><div id="adminList"></div></section><section class="admin-card"><div class="admin-section-head"><div><span class="tag">IDEAS</span><h2>Community ideas</h2></div></div><div id="ideaList"></div></section></section>
-    <section class="admin-card" id="postManagement"><div class="admin-section-head"><div><span class="tag">CONTENT</span><h2>Publish stories & resources</h2></div><button id="resetPostBtn" class="btn btn-outline btn-small">New post</button></div><form id="postForm" class="form-grid"><input id="postId" type="hidden"><div class="form-row"><label>Title<input id="postTitle" required></label><label>Category<select id="postCategory"><option>Community Service</option><option>Leadership</option><option>Environment</option><option>Education</option><option>Innovation</option><option>Report</option><option>Announcement</option></select></label></div><label>Excerpt<textarea id="postExcerpt" rows="2"></textarea></label><label>Full story / report<textarea id="postContent" rows="6"></textarea></label><div class="form-row"><label>Cover image<input id="coverFile" type="file" accept="image/*"></label><label>Media / resource<input id="mediaFile" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label></div><div class="form-row"><label>Publishing status<select id="postPublished"><option value="false">Draft</option><option value="true">Published</option></select></label><div></div></div><button class="btn btn-red">Save story</button><div id="postMessage" class="form-message"></div></form><div id="adminPostList" class="admin-list"></div></section>
-    <section class="admin-card"><div class="admin-section-head"><div><span class="tag">HOMEPAGE</span><h2>Public wording</h2></div></div><form id="settingsForm" class="form-grid"><div class="form-row"><label>College / program name<input id="setCollegeName"></label><label>Logo URL (optional)<input id="setLogoUrl"></label></div><label>Hero title<textarea id="setHeroTitle" rows="2"></textarea></label><label>Hero subtitle<textarea id="setHeroSubtitle" rows="3"></textarea></label><label>About text<textarea id="setHeroText" rows="4"></textarea></label><button class="btn btn-blue">Save homepage settings</button><div id="settingsMessage" class="form-message"></div></form></section>
-  </section>
-</main><footer class="site-footer"><div class="shell copyright center-text">Copyright © <span id="year"></span> Youth Volunteer of RP Gishari College. All rights reserved. Developed by MWAMINI Soulaiman Shyiraho Nimero +250785696336.</div></footer>
-</body></html>
+  <div class="admin-top">
+    <div class="shell admin-top-inner">
+      <div>
+        <span class="eyebrow-light">RP GISHARI COLLEGE</span>
+        <b>Youth Volunteers Administration</b>
+      </div>
+      <div class="admin-user">
+        <span id="adminName">—</span>
+        <button id="logoutBtn" class="btn btn-small btn-light">Log out</button>
+      </div>
+    </div>
+  </div>
+  <main class="admin-main shell">
+    <section id="loginView" class="admin-login">
+      <div class="login-hero">
+        <span class="tag">AUTHORIZED ACCESS</span>
+        <h1>Volunteer administration.</h1>
+        <p>Only accounts whose profile role is <b>admin</b> and status is <b>approved</b> can enter this dashboard. Volunteer registration never grants admin access.</p>
+      </div>
+      <div class="login-card">
+        <form id="loginForm" class="form-grid">
+          <label>Email<input id="loginEmail" type="email" required></label>
+          <label>Password<input id="loginPassword" type="password" required></label>
+          <button class="btn btn-blue btn-block">Sign in as admin</button>
+          <div id="loginMessage" class="form-message"></div>
+        </form>
+        <button id="copySqlBtn" class="text-button" type="button">Copy Supabase setup SQL</button>
+      </div>
+    </section>
+    
+    <section id="dashboardView" class="hidden">
+      <div class="dashboard-title">
+        <div>
+          <span class="tag">CONTROL CENTER</span>
+          <h1>Welcome, <span id="adminNameLarge">Admin</span>.</h1>
+          <p id="adminEmail">—</p>
+        </div>
+        <a href="index.html" class="btn btn-outline">View website</a>
+      </div>
+      <div class="admin-stats">
+        <article><span>Registered</span><strong id="dashRegistered">0</strong></article>
+        <article><span>Pending</span><strong id="dashPending">0</strong></article>
+        <article><span>Active</span><strong id="dashActive">0</strong></article>
+        <article><span>New ideas</span><strong id="dashIdeas">0</strong></article>
+      </div>
+      
+      <section class="admin-card">
+        <div class="admin-section-head">
+          <div>
+            <span class="tag">VOLUNTEERS</span>
+            <h2>Membership review & export</h2>
+          </div>
+          <div class="export-row">
+            <button data-export="all" class="btn btn-blue btn-small">Download all</button>
+            <button data-export="Y1" class="btn btn-outline btn-small">Y1</button>
+            <button data-export="Y2" class="btn btn-outline btn-small">Y2</button>
+            <button data-export="Y3" class="btn btn-outline btn-small">Y3</button>
+            <button data-export="B-Tech" class="btn btn-outline btn-small">B-Tech</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input id="volunteerSearch" placeholder="Search name, email, phone, department…">
+          <select id="volunteerStatusFilter">
+            <option value="all">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+          </select>
+          <select id="volunteerYearFilter">
+            <option value="all">All levels</option>
+            <option>Y1</option>
+            <option>Y2</option>
+            <option>Y3</option>
+            <option>B-Tech</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Contact</th><th>Study</th><th>Bank details</th><th>Status</th><th>Role</th><th>Action</th></tr>
+            </thead>
+            <tbody id="volunteerTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-card manual-volunteer-card">
+        <div class="admin-section-head">
+          <div>
+            <span class="tag">ADD VOLUNTEER</span>
+            <h2>Write a new volunteer record</h2>
+            <p>This creates the volunteer directly in Supabase. They can later use Volunteer Login → Register with the same email to claim the record and create their password.</p>
+          </div>
+        </div>
+        <form id="manualVolunteerForm" class="form-grid">
+          <div class="form-row">
+            <label>Full name<input name="full_name" required></label>
+            <label>Email<input name="email" type="email" required></label>
+          </div>
+          <div class="form-row">
+            <label>Telephone<input name="phone" type="tel" required></label>
+            <label>Sex
+              <select name="sex" required>
+                <option>Female</option>
+                <option>Male</option>
+                <option>Other</option>
+                <option>Prefer not to say</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Student ID<input name="student_id"></label>
+            <label>Year / Level
+              <select name="year_level" required>
+                <option>Y1</option>
+                <option>Y2</option>
+                <option>Y3</option>
+                <option>B-Tech</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Department<input name="department" required></label>
+            <label>Option / Specialization<input name="option_name" required></label>
+          </div>
+          <div class="form-row">
+            <label>Academic year<input name="academic_year"></label>
+            <label>District<input name="district"></label>
+          </div>
+          <div class="form-row">
+            <label>Availability
+              <select name="availability">
+                <option>Weekly</option>
+                <option>Monthly</option>
+                <option>Flexible</option>
+              </select>
+            </label>
+            <label>Preferred area<input name="preferred_area"></label>
+          </div>
+          <label>Skills / interests<textarea name="skills" rows="2"></textarea></label>
+          <div class="form-row">
+            <label>Emergency contact<input name="emergency_contact"></label>
+            <label>Emergency telephone<input name="emergency_phone" type="tel"></label>
+          </div>
+          <div class="form-row">
+            <label>Bank name<input name="bank_name"></label>
+            <label>Name on bank account<input name="bank_account_name"></label>
+          </div>
+          <label>Bank account number<input name="bank_account_number" inputmode="numeric"></label>
+          <label>Motivation / reason for volunteering<textarea name="motivation" rows="3" required></textarea></label>
+          <div class="agreement-box">
+            <label><input type="checkbox" name="agreement_conduct" required> Volunteer agreement accepted.</label>
+            <label><input type="checkbox" name="agreement_data" required> Data-processing agreement accepted.</label>
+            <label><input type="checkbox" name="media_consent"> Media consent granted.</label>
+          </div>
+          <div class="form-row">
+            <label>Initial status
+              <select name="status">
+                <option value="pending">Pending</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </label>
+            <div></div>
+          </div>
+          <button class="btn btn-red">Save volunteer to Supabase</button>
+          <div id="manualVolunteerMessage" class="form-message"></div>
+        </form>
+      </section>
+
+      <section class="admin-grid-two">
+        <section class="admin-card">
+          <div class="admin-section-head">
+            <div>
+              <span class="tag">ADMIN TEAM</span>
+              <h2>Admins have equal access.</h2>
+            </div>
+          </div>
+          <div id="adminList"></div>
+        </section>
+        <section class="admin-card">
+          <div class="admin-section-head">
+            <div>
+              <span class="tag">IDEAS</span>
+              <h2>Community ideas</h2>
+            </div>
+          </div>
+          <div id="ideaList"></div>
+        </section>
+      </section>
+
+      <section class="admin-card" id="postManagement">
+        <div class="admin-section-head">
+          <div>
+            <span class="tag">CONTENT</span>
+            <h2>Publish stories & resources</h2>
+          </div>
+          <button id="resetPostBtn" class="btn btn-outline btn-small">New post</button>
+        </div>
+        <form id="postForm" class="form-grid">
+          <input id="postId" type="hidden">
+          <div class="form-row">
+            <label>Title<input id="postTitle" required></label>
+            <label>Category
+              <select id="postCategory">
+                <option>Community Service</option>
+                <option>Leadership</option>
+                <option>Environment</option>
+                <option>Education</option>
+                <option>Innovation</option>
+                <option>Report</option>
+                <option>Announcement</option>
+              </select>
+            </label>
+          </div>
+          <label>Excerpt<textarea id="postExcerpt" rows="2"></textarea></label>
+          <label>Full story / report<textarea id="postContent" rows="6"></textarea></label>
+          <div class="form-row">
+            <label>Cover image<input id="coverFile" type="file" accept="image/*"></label>
+            <label>Media / resource<input id="mediaFile" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>
+          </div>
+          <div class="form-row">
+            <label>Publishing status
+              <select id="postPublished">
+                <option value="false">Draft</option>
+                <option value="true">Published</option>
+              </select>
+            </label>
+            <div></div>
+          </div>
+          <button class="btn btn-red">Save story</button>
+          <div id="postMessage" class="form-message"></div>
+        </form>
+        <div id="adminPostList" class="admin-list"></div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-section-head">
+          <div>
+            <span class="tag">HOMEPAGE</span>
+            <h2>Public wording</h2>
+          </div>
+        </div>
+        <form id="settingsForm" class="form-grid">
+          <div class="form-row">
+            <label>College / program name<input id="setCollegeName"></label>
+            <label>Logo URL (optional)<input id="setLogoUrl"></label>
+          </div>
+          <label>Hero title<textarea id="setHeroTitle" rows="2"></textarea></label>
+          <label>Hero subtitle<textarea id="setHeroSubtitle" rows="3"></textarea></label>
+          <label>About text<textarea id="setHeroText" rows="4"></textarea></label>
+          <button class="btn btn-blue">Save homepage settings</button>
+          <div id="settingsMessage" class="form-message"></div>
+        </form>
+      </section>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="shell copyright center-text">Copyright © <span id="year"></span> Youth Volunteer of RP Gishari College. All rights reserved. Developed by MWAMINI Soulaiman Shyiraho Nimero +250785696336.</div>
+  </footer>
+</body>
+</html>
