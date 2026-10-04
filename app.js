@@ -17,7 +17,8 @@ function initSupabaseClient(){
   if(supabaseLoadPromise) return supabaseLoadPromise;
   supabaseLoadPromise=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    // FIXED: Point directly to the UMD browser build instead of the package root
+    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
     script.async=true;
     script.onload=()=>{
       try{
