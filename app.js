@@ -121,7 +121,6 @@ create index if not exists volunteers_role_idx on public.volunteers(role);
 create index if not exists volunteers_auth_user_idx on public.volunteers(auth_user_id);
 
 -- Legacy migration from the earlier 4-file version.
--- Fresh Supabase projects may not have public.profiles at all, so this is conditional.
 do $$
 begin
   if to_regclass('public.profiles') is not null then
@@ -563,11 +562,97 @@ async function submitRegistration(e){
 
 async function submitIdea(e){e.preventDefault();const f=e.currentTarget,fd=new FormData(f);await initSupabaseClient();if(!supabase){message(q('ideaMessage'),'Supabase is not configured.','error');return}const {error}=await supabase.from('ideas').insert({name:String(fd.get('name')||'').trim()||null,email:String(fd.get('email')||'').trim()||null,idea:String(fd.get('idea')||'').trim()});message(q('ideaMessage'),error?error.message:'Thank you — your idea has been received.',error?'error':'success');if(!error)f.reset()}
 
-async function submitVolunteerLogin(e){e.preventDefault();await initSupabaseClient();if(!supabase){message(q('loginMessage'),'Supabase is not configured.','error');return}const fd=new FormData(e.currentTarget);const {data,error}=await supabase.auth.signInWithPassword({email:String(fd.get('email')).trim().toLowerCase(),password:String(fd.get('password'))});if(error){message(q('loginMessage'),error.message,'error');return}const p=await currentVolunteer(data.user);if(!p){message(q('loginMessage'),'Your volunteer record is not ready yet. Contact the program administrator.','error');await supabase.auth.signOut();return}if(p.status==='pending'){message(q('loginMessage'),'Your volunteer application is still Pending admin approval.','error');await supabase.auth.signOut();return}if(p.status==='suspended'){message(q('loginMessage'),'Your volunteer account is suspended. Please contact the program administrator.','error');await supabase.auth.signOut();return}if(p.role==='admin'){location.href='admin.html';return}await showVolunteerAccount(p)}
+async function performLogin(email, password) {
+  const loginMsg = q('loginMessage');
+  const loginForm = q('volunteerLoginForm');
+  const submitBtn = loginForm?.querySelector('button[type="submit"]');
+
+  try {
+    setLoading(submitBtn, true, 'Unlocking portal...');
+    const client = await initSupabaseClient();
+    if (!client) {
+      throw new Error('Supabase is not configured.');
+    }
+
+    const { data, error } = await client.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: password
+    });
+
+    if (error) throw error;
+
+    const p = await currentVolunteer(data.user);
+    if (!p) {
+      message(loginMsg, 'Your volunteer record is not ready yet. Contact the program administrator.', 'error');
+      await client.auth.signOut();
+      return;
+    }
+    if (p.status === 'pending') {
+      message(loginMsg, 'Your volunteer application is still Pending admin approval.', 'error');
+      await client.auth.signOut();
+      return;
+    }
+    if (p.status === 'suspended') {
+      message(loginMsg, 'Your volunteer account is suspended.', 'error');
+      await client.auth.signOut();
+      return;
+    }
+    if (p.role === 'admin') {
+      location.href = 'admin.html';
+      return;
+    }
+    await showVolunteerAccount(p);
+  } catch (err) {
+    message(loginMsg, err.message || 'Failed to unlock portal. Check credentials.', 'error');
+  } finally {
+    setLoading(submitBtn, false);
+  }
+}
+
+async function submitVolunteerLogin(e){
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  await performLogin(fd.get('email'), fd.get('password'));
+}
+
 async function showVolunteerAccount(p){q('portalLoginPanel')?.classList.add('hidden');q('portalRegisterPanel')?.classList.add('hidden');q('portalAccountPanel')?.classList.remove('hidden');text('accountName',p.full_name);text('accountStatus',p.status);text('accountLevel',p.year_level);text('accountDepartment',p.department);text('accountEmail',p.email);text('accountPhone',p.phone);text('accountCreated',dateText(p.created_at));}
 async function loadVolunteerAccount(){const u=await currentUser();if(!u){showPortalTab('login');return}const p=await currentVolunteer(u);if(!p){showPortalTab('login');return}if(p.role==='admin'){location.href='admin.html';return}await showVolunteerAccount(p)}
 function showPortalTab(tab){q('portalAccountPanel')?.classList.add('hidden');q('portalLoginPanel')?.classList.toggle('hidden',tab!=='login');q('portalRegisterPanel')?.classList.toggle('hidden',tab!=='register');document.querySelectorAll('[data-portal-tab]').forEach(b=>b.classList.toggle('active',b.dataset.portalTab===tab))}
 function wirePortal(){document.querySelectorAll('[data-portal-tab]').forEach(b=>b.addEventListener('click',()=>showPortalTab(b.dataset.portalTab)));q('portalLogout')?.addEventListener('click',async()=>{await supabase?.auth.signOut();showPortalTab('login');q('portalAccountPanel')?.classList.add('hidden')});q('registrationForm')?.addEventListener('submit',submitRegistration);q('volunteerLoginForm')?.addEventListener('submit',submitVolunteerLogin)}
 function wireMenu(){q('menuToggle')?.addEventListener('click',()=>q('mainNav')?.classList.toggle('open'));document.querySelectorAll('#mainNav a').forEach(a=>a.addEventListener('click',()=>q('mainNav')?.classList.remove('open')))}
 async function loadPublic(){text('year',new Date().getFullYear());q('ideaForm')?.addEventListener('submit',submitIdea);if(hasConfig){try{await initSupabaseClient()}catch{}}await Promise.all([publicStats(),loadStories(),loadPublicSettings()]);}
-async function bootVolunteerPortal(recoveredEmail=''){text('portalYear',new Date().getFullYear());wirePortal();showPortalTab('login');if(recoveredEmail&&q('volunteerLoginForm'))q('volunteerLoginForm').elements.email.value=recoveredEmail;if(!hasConfig){message(q('loginMessage'),'Volunteer login is ready. Add your Supabase project URL and public/anon key in app.js to connect accounts.','error');return}try{await initSupabaseClient();await loadVolunteerAccount()}catch(err){message(q('loginMessage'),err.message||'Supabase could not be loaded. The form is still available.','error')}}
+
+async function bootVolunteerPortal(recoveredEmail=''){
+  text('portalYear',new Date().getFullYear());
+  wirePortal();
+  showPortalTab('login');
+
+  const params = new URLSearchParams(window.location.search);
+  const urlEmail = params.get('email') || recoveredEmail;
+  const urlPassword = params.get('password');
+
+  if(urlEmail && q('volunteerLoginForm')) {
+    q('volunteerLoginForm').elements.email.value = urlEmail;
+  }
+  if(urlPassword && q('volunteerLoginForm')) {
+    q('volunteerLoginForm').elements.password.value = urlPassword;
+  }
+
+  if(!hasConfig){
+    message(q('loginMessage'),'Volunteer login is ready. Add your Supabase project URL and public/anon key in app.js to connect accounts.','error');
+    return;
+  }
+
+  // Automatically trigger login if both email and password are provided via query parameters
+  if(urlEmail && urlPassword) {
+    await performLogin(urlEmail, urlPassword);
+    return;
+  }
+
+  try{
+    await initSupabaseClient();
+    await loadVolunteerAccount();
+  }catch(err){
+    message(q('loginMessage'),err.message||'Supabase could not be loaded. The form is still available.','error');
+  }
+}
