@@ -1,14 +1,5 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin • Youth Volunteers</title>
-<meta name="theme-color" content="#0a2d5e">
-<link rel="stylesheet" href="styles.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script defer src="app.js"></script>
-</head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin • Youth Volunteers</title><meta name="theme-color" content="#0a2d5e"><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script defer src="app.js"></script></head>
 <body data-page="admin">
 <div class="admin-top"><div class="shell admin-top-inner"><div><span class="eyebrow-light">RP GISHARI COLLEGE</span><b>Youth Volunteers Administration</b></div><div class="admin-user"><span id="adminName">—</span><button id="logoutBtn" class="btn btn-small btn-light">Log out</button></div></div></div>
 <main class="admin-main shell">
@@ -21,6 +12,5 @@
     <section class="admin-card" id="postManagement"><div class="admin-section-head"><div><span class="tag">CONTENT</span><h2>Publish stories & resources</h2></div><button id="resetPostBtn" class="btn btn-outline btn-small">New post</button></div><form id="postForm" class="form-grid"><input id="postId" type="hidden"><div class="form-row"><label>Title<input id="postTitle" required></label><label>Category<select id="postCategory"><option>Community Service</option><option>Leadership</option><option>Environment</option><option>Education</option><option>Innovation</option><option>Report</option><option>Announcement</option></select></label></div><label>Excerpt<textarea id="postExcerpt" rows="2"></textarea></label><label>Full story / report<textarea id="postContent" rows="6"></textarea></label><div class="form-row"><label>Cover image<input id="coverFile" type="file" accept="image/*"></label><label>Media / resource<input id="mediaFile" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label></div><div class="form-row"><label>Publishing status<select id="postPublished"><option value="false">Draft</option><option value="true">Published</option></select></label><div></div></div><button class="btn btn-red">Save story</button><div id="postMessage" class="form-message"></div></form><div id="adminPostList" class="admin-list"></div></section>
     <section class="admin-card"><div class="admin-section-head"><div><span class="tag">HOMEPAGE</span><h2>Public wording</h2></div></div><form id="settingsForm" class="form-grid"><div class="form-row"><label>College / program name<input id="setCollegeName"></label><label>Logo URL (optional)<input id="setLogoUrl"></label></div><label>Hero title<textarea id="setHeroTitle" rows="2"></textarea></label><label>Hero subtitle<textarea id="setHeroSubtitle" rows="3"></textarea></label><label>About text<textarea id="setHeroText" rows="4"></textarea></label><button class="btn btn-blue">Save homepage settings</button><div id="settingsMessage" class="form-message"></div></form></section>
   </section>
-</main><footer class="site-footer"><div class="shell copyright">Copyright © <span id="year"></span> Youth Volunteer of RP Gishari College. All rights reserved. Developed by Soulaiman MWAMINI.</div></footer>
-</body>
-</html>
+</main><footer class="site-footer"><div class="shell copyright">Copyright © <span id="year"></span> Youth Volunteer of RP Gishari College. All rights reserved. Developed by Soulaiman MWAMINI • +250785696336.</div></footer>
+</body></html>
