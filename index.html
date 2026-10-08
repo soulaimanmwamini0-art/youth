@@ -1,317 +1,185 @@
 <!DOCTYPE html>
 <!--
-  Youth Volunteer Digital Platform :: index.html
-  Public-facing portal.
-  Sections: header/nav, hero, live telemetry, news grid, ideas form,
-            multi-pane volunteer login/registration, footer.
-  Behaviour lives in app.js (body[data-page="home"]).
+  index.html | Youth Volunteer Digital Platform | Public portal
+  -----------------------------------------------------------------------------
+  Sections: navigation, hero, live telemetry, community ideas box, story stream,
+  and the "Join Us" panel. The Join Us panel contains a LOGIN FORM ONLY. There is
+  intentionally no registration form: every volunteer is provisioned by an
+  administrator first (see admin.html and schema.sql).
+  All behaviour lives in app.js, loaded as an ES module.
 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Youth Volunteer Platform</title>
-  <meta name="description" content="Join young volunteers serving their communities. Share civic ideas, read the latest news and register to volunteer.">
+  <meta name="description" content="A youth-led volunteer network: live impact numbers, community ideas and volunteer stories.">
   <meta name="theme-color" content="#2d6aa8">
-  <!-- Content-Security-Policy: scripts only from self + the Supabase SDK CDN; API calls only to Supabase. -->
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' https: data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; frame-ancestors 'self'; base-uri 'self'; form-action 'self'">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="stylesheet" href="styles.css">
-  <script type="module" src="app.js"></script>
 </head>
 <body data-page="home">
   <a class="skip-link" href="#main">Skip to main content</a>
 
-  <!-- Site-wide announcement (filled from site_settings.announcement) -->
-  <div id="announcement" class="announcement" role="status" hidden></div>
+  <!-- Shown by app.js only when the Supabase credentials have not been filled in. -->
+  <div id="config-banner" class="config-banner" role="alert" hidden>
+    <div class="container">
+      Backend not configured yet. Open <code>app.js</code> and set <code>SUPABASE_URL</code>
+      and <code>SUPABASE_ANON_KEY</code>. The page is showing offline content.
+    </div>
+  </div>
 
-  <!-- =========================== HEADER =========================== -->
+  <!-- ============================== NAVIGATION ============================== -->
   <header class="site-header">
-    <div class="container site-header__inner">
-      <a class="brand" href="#top" aria-label="Home">
-        <span class="brand__mark" aria-hidden="true">Y</span>
-        <span data-site-title>Youth Volunteer Platform</span>
+    <div class="container nav">
+      <a class="brand" href="#home" aria-label="Youth Volunteer Platform home">
+        <span class="brand-mark" aria-hidden="true">YV</span>
+        <span>Youth Volunteers</span>
       </a>
-      <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="main-nav" aria-expanded="false" aria-label="Toggle navigation">&#9776;</button>
-      <nav id="main-nav" class="nav" aria-label="Main navigation" data-open="false">
-        <a href="#impact">Impact</a>
-        <a href="#news">News</a>
-        <a href="#ideas">Share an idea</a>
-        <a href="#join">Volunteer</a>
-        <a id="admin-link" href="admin.html" hidden>Admin</a>
-        <a class="btn btn--danger" href="#join">Join now</a>
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+      <nav aria-label="Primary">
+        <ul class="nav-links" id="nav-links">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#impact">Impact</a></li>
+          <li><a href="#ideas">Ideas Box</a></li>
+          <li><a href="#stories">Stories</a></li>
+          <li><a class="nav-cta" href="#join">Join Us</a></li>
+        </ul>
       </nav>
     </div>
   </header>
 
   <main id="main">
-    <div id="backend-notice" hidden></div>
 
-    <!-- ============================ HERO ============================ -->
-    <section class="hero" id="top">
+    <!-- ================================ HERO ================================ -->
+    <section class="hero" id="home">
       <div class="container">
-        <h1 id="hero-heading">Volunteer. Lead. Change your community.</h1>
-        <p id="hero-tagline">Young people serving their communities.</p>
-        <div class="hero__actions">
-          <a class="btn btn--light" href="#join">Become a volunteer</a>
-          <a class="btn btn--ghost-light" href="#ideas">Share a civic idea</a>
+        <span class="eyebrow">Youth-led &middot; Community-powered</span>
+        <h1 id="hero-title">Young people changing communities</h1>
+        <p id="hero-subtitle">Join a youth-led volunteer network turning small acts into lasting impact.</p>
+        <div class="flex flex--wrap mt-5">
+          <a class="btn btn--primary" href="#join">Volunteer login</a>
+          <a class="btn btn--ghost" style="color:#fff;border-color:#fff" href="#ideas">Share an idea</a>
         </div>
       </div>
     </section>
 
-    <!-- ========================= TELEMETRY ========================== -->
-    <section class="telemetry" id="impact" aria-labelledby="impact-title">
+    <!-- ============================ PUBLIC TELEMETRY ========================= -->
+    <section class="section section--alt" id="impact" aria-labelledby="impact-title">
       <div class="container">
-        <h2 id="impact-title" class="visually-hidden">Platform impact</h2>
-        <div class="grid grid--4">
-          <div class="stat-card">
-            <div class="stat-card__label">Volunteers registered</div>
-            <div class="stat-card__value" data-stat="total_volunteers">0</div>
-            <p class="stat-card__hint">All-time sign-ups</p>
+        <div class="section-head">
+          <h2 id="impact-title">Our impact, live</h2>
+          <p id="mission-text">We connect young volunteers with meaningful projects, train them, and celebrate what they achieve together.</p>
+        </div>
+        <div class="grid grid--4" id="stats-grid">
+          <div class="card card--navy stat">
+            <div class="stat-value" id="stat-active" data-count="0">0</div>
+            <div class="stat-label">Active volunteers</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-card__label">Active volunteers</div>
-            <div class="stat-card__value" data-stat="active_volunteers">0</div>
-            <p class="stat-card__hint">Approved and serving</p>
+          <div class="card card--navy stat">
+            <div class="stat-value" id="stat-total" data-count="0">0</div>
+            <div class="stat-label">Registered members</div>
           </div>
-          <div class="stat-card stat-card--accent">
-            <div class="stat-card__label">Joined in 30 days</div>
-            <div class="stat-card__value" data-stat="signups_last_30_days">0</div>
-            <p class="stat-card__hint">New this month</p>
+          <div class="card card--accent stat stat--accent">
+            <div class="stat-value" id="stat-posts" data-count="0">0</div>
+            <div class="stat-label">Stories published</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-card__label">Ideas shared</div>
-            <div class="stat-card__value" data-stat="total_ideas">0</div>
-            <p class="stat-card__hint">Crowd-sourced civic ideas</p>
+          <div class="card card--accent stat stat--accent">
+            <div class="stat-value" id="stat-ideas" data-count="0">0</div>
+            <div class="stat-label">Ideas received</div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ============================ NEWS ============================ -->
-    <section class="section" id="news" aria-labelledby="news-title">
-      <div class="container">
-        <div class="section__head">
-          <h2 id="news-title">Latest news &amp; stories</h2>
-          <p>Updates, events and stories from volunteers across the platform.</p>
-        </div>
-        <div id="news-filters" class="chips" role="group" aria-label="Filter stories by type">
-          <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
-          <button type="button" class="chip" data-filter="news" aria-pressed="false">News</button>
-          <button type="button" class="chip" data-filter="event" aria-pressed="false">Events</button>
-          <button type="button" class="chip" data-filter="story" aria-pressed="false">Stories</button>
-          <button type="button" class="chip" data-filter="video" aria-pressed="false">Video</button>
-        </div>
-        <div id="news-grid" class="grid grid--auto" aria-live="polite">
-          <div class="empty-state">Loading stories…</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============================ IDEAS =========================== -->
-    <section class="section section--alt" id="ideas" aria-labelledby="ideas-title">
+    <!-- ============================= IDEAS BOX ============================== -->
+    <section class="section" id="ideas" aria-labelledby="ideas-title">
       <div class="container grid grid--2">
-        <div class="section__head">
-          <h2 id="ideas-title">Got an idea for your community?</h2>
-          <p>Tell us about a problem you have noticed or a project you would love to see. Every idea is read by our team. You do not need an account to submit one.</p>
-          <ul>
-            <li>Keep it specific: what, where and who it helps.</li>
-            <li>Your e-mail is optional and only visible to administrators.</li>
-          </ul>
+        <div class="section-head">
+          <h2 id="ideas-title">Community ideas box</h2>
+          <p>Have a project, event or improvement in mind? Drop it in the box. Every idea is read by the coordination team.</p>
         </div>
-        <form id="idea-form" class="panel form" novalidate>
-          <div data-msg class="alert" hidden></div>
-          <div class="form__row">
-            <div class="field">
-              <label for="idea-name">Your name <span class="req">*</span></label>
-              <input id="idea-name" name="authorName" class="input" type="text" maxlength="120" autocomplete="name" required>
-              <p class="field__error" data-error-for="authorName"></p>
-            </div>
-            <div class="field">
-              <label for="idea-email">E-mail (optional)</label>
-              <input id="idea-email" name="authorEmail" class="input" type="email" maxlength="200" autocomplete="email">
-              <p class="field__error" data-error-for="authorEmail"></p>
-            </div>
+        <form class="card card--accent form" id="idea-form" novalidate>
+          <div class="field">
+            <label for="idea-name">Your name (optional)</label>
+            <input id="idea-name" name="name" type="text" maxlength="120" autocomplete="name">
           </div>
           <div class="field">
-            <label for="idea-category">Category</label>
-            <select id="idea-category" name="category" class="select">
-              <option value="general">General</option>
-              <option value="environment">Environment</option>
-              <option value="education">Education</option>
-              <option value="health">Health &amp; wellbeing</option>
-              <option value="safety">Safety</option>
-              <option value="technology">Technology</option>
-            </select>
+            <label for="idea-email">Your e-mail (optional)</label>
+            <input id="idea-email" name="email" type="email" maxlength="254" autocomplete="email">
+            <span class="hint">Only used if we want to follow up on your idea.</span>
           </div>
           <div class="field">
-            <label for="idea-title">Idea title <span class="req">*</span></label>
-            <input id="idea-title" name="title" class="input" type="text" maxlength="160" required>
-            <p class="field__error" data-error-for="title"></p>
+            <label for="idea-message">Your idea</label>
+            <textarea id="idea-message" name="message" minlength="5" maxlength="2000" required></textarea>
+            <span class="hint"><span id="idea-count">0</span> / 2000 characters</span>
           </div>
-          <div class="field">
-            <label for="idea-body">Describe your idea <span class="req">*</span></label>
-            <textarea id="idea-body" name="body" class="textarea" maxlength="4000" required></textarea>
-            <p class="field__error" data-error-for="body"></p>
-          </div>
-          <!-- Honeypot: hidden from people, tempting to bots -->
+          <!-- Honeypot: real users never see or fill this; bots often do. -->
           <div class="honeypot" aria-hidden="true">
-            <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+            <label for="idea-website">Website</label>
+            <input id="idea-website" name="website" type="text" tabindex="-1" autocomplete="off">
           </div>
-          <button class="btn btn--danger" type="submit">Submit idea</button>
+          <div id="idea-msg" role="status" aria-live="polite"></div>
+          <button class="btn btn--primary" type="submit" id="idea-submit">Submit idea</button>
         </form>
       </div>
     </section>
 
-    <!-- ===================== VOLUNTEER AUTH PANEL ==================== -->
+    <!-- ============================= STORY STREAM ============================ -->
+    <section class="section section--alt" id="stories" aria-labelledby="stories-title">
+      <div class="container">
+        <div class="section-head">
+          <h2 id="stories-title">Volunteer stories</h2>
+          <p>Real moments from projects across our network.</p>
+        </div>
+        <div class="grid grid--3" id="story-stream" aria-live="polite">
+          <div class="empty-state">Loading stories&hellip;</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================ JOIN US ============================== -->
+    <!-- LOGIN ONLY. No sign-up fields exist anywhere on this page by design. -->
     <section class="section" id="join" aria-labelledby="join-title">
       <div class="container">
-        <div class="section__head text-center mx-auto">
-          <h2 id="join-title">Volunteer with us</h2>
-          <p>Create an account to join, or sign in to check your approval status.</p>
+        <div class="section-head text-center" style="margin-inline:auto">
+          <h2 id="join-title">Join Us</h2>
+          <p>Volunteer access is by invitation. If you have been approved by an administrator, sign in below. Not approved yet? Contact us at <span id="contact-email">hello@example.org</span> and the team will set you up.</p>
         </div>
 
-        <div class="auth panel">
-          <!-- Shown when signed out -->
-          <div id="auth-guest">
-            <div class="tabs" role="tablist" aria-label="Account options">
-              <button class="tab" role="tab" id="tab-login" data-pane="login" aria-selected="true" aria-controls="pane-login">Sign in</button>
-              <button class="tab" role="tab" id="tab-register" data-pane="register" aria-selected="false" aria-controls="pane-register" tabindex="-1">Register</button>
-              <button class="tab" role="tab" id="tab-reset" data-pane="reset" aria-selected="false" aria-controls="pane-reset" tabindex="-1">Reset</button>
-            </div>
-
-            <!-- Pane 1: login -->
-            <div class="tab-pane" role="tabpanel" id="pane-login" data-pane="login" aria-labelledby="tab-login">
-              <form id="login-form" class="form" novalidate>
-                <div data-msg class="alert" hidden></div>
-                <div class="field">
-                  <label for="login-email">E-mail</label>
-                  <input id="login-email" name="email" class="input" type="email" autocomplete="email" required>
-                </div>
-                <div class="field">
-                  <label for="login-password">Password</label>
-                  <input id="login-password" name="password" class="input" type="password" autocomplete="current-password" required>
-                </div>
-                <button class="btn btn--primary btn--block" type="submit">Sign in</button>
-                <p class="muted text-center mb-0">
-                  New here? <a href="#join" data-goto="register">Create an account</a> ·
-                  <a href="#join" data-goto="reset">Forgot password?</a>
-                </p>
-              </form>
-            </div>
-
-            <!-- Pane 2: registration -->
-            <div class="tab-pane" role="tabpanel" id="pane-register" data-pane="register" aria-labelledby="tab-register" hidden>
-              <div id="register-closed" class="alert alert--info" hidden>Registration is temporarily closed. Please check back soon.</div>
-              <form id="register-form" class="form" novalidate>
-                <div data-msg class="alert" hidden></div>
-                <div class="field">
-                  <label for="reg-name">Full name <span class="req">*</span></label>
-                  <input id="reg-name" name="fullName" class="input" type="text" maxlength="120" autocomplete="name" required>
-                  <p class="field__error" data-error-for="fullName"></p>
-                </div>
-                <div class="field">
-                  <label for="reg-email">E-mail <span class="req">*</span></label>
-                  <input id="reg-email" name="email" class="input" type="email" maxlength="200" autocomplete="email" required>
-                  <p class="field__error" data-error-for="email"></p>
-                </div>
-                <div class="form__row">
-                  <div class="field">
-                    <label for="reg-password">Password <span class="req">*</span></label>
-                    <input id="reg-password" name="password" class="input" type="password" autocomplete="new-password" minlength="10" required>
-                    <p class="field__hint">10+ characters with upper, lower and a number.</p>
-                    <p class="field__error" data-error-for="password"></p>
-                  </div>
-                  <div class="field">
-                    <label for="reg-confirm">Confirm password <span class="req">*</span></label>
-                    <input id="reg-confirm" name="confirm" class="input" type="password" autocomplete="new-password" required>
-                    <p class="field__error" data-error-for="confirm"></p>
-                  </div>
-                </div>
-                <div class="form__row">
-                  <div class="field">
-                    <label for="reg-phone">Phone</label>
-                    <input id="reg-phone" name="phone" class="input" type="tel" maxlength="32" autocomplete="tel">
-                  </div>
-                  <div class="field">
-                    <label for="reg-city">City</label>
-                    <input id="reg-city" name="city" class="input" type="text" maxlength="80" autocomplete="address-level2">
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="reg-age">Age</label>
-                  <input id="reg-age" name="age" class="input" type="number" min="13" max="35" inputmode="numeric">
-                  <p class="field__error" data-error-for="age"></p>
-                </div>
-                <div class="field">
-                  <label for="reg-interests">What would you like to help with?</label>
-                  <textarea id="reg-interests" name="interests" class="textarea textarea--sm" maxlength="500"></textarea>
-                </div>
-                <div class="honeypot" aria-hidden="true">
-                  <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
-                </div>
-                <div class="field">
-                  <label class="checkbox">
-                    <input type="checkbox" name="consent" required>
-                    <span>I agree to follow the volunteer code of conduct and consent to my details being stored to manage my volunteering.</span>
-                  </label>
-                  <p class="field__error" data-error-for="consent"></p>
-                </div>
-                <button class="btn btn--danger btn--block" type="submit">Create account</button>
-                <p class="muted text-center mb-0">Already registered? <a href="#join" data-goto="login">Sign in</a></p>
-              </form>
-            </div>
-
-            <!-- Pane 3: password reset -->
-            <div class="tab-pane" role="tabpanel" id="pane-reset" data-pane="reset" aria-labelledby="tab-reset" hidden>
-              <form id="reset-form" class="form" novalidate>
-                <div data-msg class="alert" hidden></div>
-                <p class="muted mb-0">Enter your e-mail and we will send you a link to choose a new password.</p>
-                <div class="field">
-                  <label for="reset-email">E-mail</label>
-                  <input id="reset-email" name="email" class="input" type="email" autocomplete="email" required>
-                </div>
-                <button class="btn btn--primary btn--block" type="submit">Send reset link</button>
-                <p class="muted text-center mb-0"><a href="#join" data-goto="login">Back to sign in</a></p>
-              </form>
-            </div>
+        <form class="card card--navy form login-card" id="login-form" novalidate>
+          <div class="field">
+            <label for="login-email">E-mail</label>
+            <input id="login-email" name="email" type="email" autocomplete="username" required maxlength="254">
           </div>
+          <div class="field">
+            <label for="login-password">Password</label>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required minlength="6" maxlength="128">
+          </div>
+          <div id="login-msg" role="alert" aria-live="assertive"></div>
+          <button class="btn btn--navy btn--block" type="submit" id="login-submit">Sign in</button>
+        </form>
 
-          <!-- Shown when signed in -->
-          <div id="auth-member" hidden>
-            <div class="session-card">
-              <div>
-                <h3 class="mb-0">Hello, <span id="member-name"></span></h3>
-                <p id="member-note" class="muted mb-0"></p>
-              </div>
-              <span id="member-status" class="badge status-pending">pending</span>
-            </div>
-            <div class="flex flex--wrap mt-4">
-              <button id="logout-btn" class="btn btn--outline" type="button">Sign out</button>
-            </div>
+        <!-- Shown instead of the form once a volunteer is signed in. -->
+        <div class="card card--navy member-panel" id="member-panel" hidden>
+          <h3>Welcome back, <span id="member-name">volunteer</span></h3>
+          <p class="text-muted">You are signed in and your account is active.</p>
+          <div class="flex flex--wrap" style="justify-content:center">
+            <a class="btn btn--primary" id="member-admin-link" href="admin.html" hidden>Open admin console</a>
+            <button class="btn btn--ghost" type="button" id="logout-btn">Sign out</button>
           </div>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- Read-more dialog for news items. Content is set via textContent. -->
-  <dialog id="post-dialog" aria-labelledby="post-dialog-title">
-    <div class="dialog__inner">
-      <p id="post-dialog-meta" class="muted mb-0"></p>
-      <h2 id="post-dialog-title"></h2>
-      <p id="post-dialog-body" class="pre-wrap"></p>
-      <button id="post-dialog-close" class="btn btn--primary" type="button">Close</button>
-    </div>
-  </dialog>
-
-  <!-- =========================== FOOTER =========================== -->
   <footer class="site-footer">
-    <div class="container flex flex--between flex--wrap">
-      <span>&copy; <span data-site-title>Youth Volunteer Platform</span></span>
-      <span><a href="#top">Back to top</a></span>
+    <div class="container flex flex--wrap flex--between">
+      <span id="footer-text">Youth Volunteer Digital Platform. Built by young people, for young people.</span>
+      <a href="#home">Back to top</a>
     </div>
   </footer>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
