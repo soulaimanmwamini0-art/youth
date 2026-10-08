@@ -1,319 +1,317 @@
-<!doctype html>
+<!DOCTYPE html>
+<!--
+  Youth Volunteer Digital Platform :: index.html
+  Public-facing portal.
+  Sections: header/nav, hero, live telemetry, news grid, ideas form,
+            multi-pane volunteer login/registration, footer.
+  Behaviour lives in app.js (body[data-page="home"]).
+-->
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Youth Volunteers • RP Gishari College</title>
-<meta name="description" content="Youth Volunteer of RP Gishari College — service, leadership, community action and youth-powered change.">
-<meta name="theme-color" content="#b3122f">
-<link rel="stylesheet" href="styles.css">
-<script>if(new URLSearchParams(location.search).get('portal')==='volunteer')document.documentElement.classList.add('portal-route');</script>
-<script defer src="app.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Youth Volunteer Platform</title>
+  <meta name="description" content="Join young volunteers serving their communities. Share civic ideas, read the latest news and register to volunteer.">
+  <meta name="theme-color" content="#2d6aa8">
+  <!-- Content-Security-Policy: scripts only from self + the Supabase SDK CDN; API calls only to Supabase. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' https: data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; frame-ancestors 'self'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
 </head>
-<body data-page="public">
-<div class="topline">
-  <div class="shell top-line-inner">
-    <span>RP GISHARI COLLEGE</span>
-    <span>YOUTH VOLUNTEER PROGRAM</span>
-    <span>URUBYIRUKO NI IMBARAGA Z'IGIHUGU</span>
-  </div>
-</div>
-<header class="site-header">
-  <div class="shell nav-wrap">
-    <a class="brand" href="#home">
-      <div class="brand-mark"><img id="siteLogoImage" class="hidden" alt="Youth Volunteers logo"><span>YV</span></div>
-      <div><b>Youth Volunteers</b><small>RP Gishari College</small></div>
-    </a>
-    <button class="menu-toggle" id="menuToggle" aria-label="Open navigation">☰</button>
-    <nav id="mainNav" class="main-nav">
-      <a href="#about">About</a><a href="#impact">Impact</a><a href="#stories">Stories</a><a href="#ideas">Ideas</a>
-      <a class="nav-pill" href="?portal=volunteer">Volunteer Login</a>
-    </nav>
-  </div>
-</header>
-<main id="home">
-<section class="hero-section">
-  <div class="shell hero-layout">
-    <div class="hero-copy">
-      <div class="tag">RP GISHARI COLLEGE • YOUTH VOLUNTEER</div>
-      <h1>Young people <em>serve</em>, lead and build a stronger Rwanda.</h1>
-      <p class="hero-lead">A living digital home where Youth Volunteers show what they did, how they did it, what they learned and the difference they made.</p>
-      <div class="hero-actions">
-        <a class="btn btn-red" href="?portal=volunteer">Become a Youth Volunteer</a>
-        <a class="btn btn-outline" href="#stories">Explore our work</a>
-      </div>
-      <div class="hero-features">
-        <div><b>01</b><span>Serve</span><small>Turn needs into action.</small></div>
-        <div><b>02</b><span>Lead</span><small>Grow responsibility.</small></div>
-        <div><b>03</b><span>Share</span><small>Make impact visible.</small></div>
-      </div>
-    </div>
-    <div class="hero-art">
-      <div class="art-ribbon">YOUTH POWER <span>+</span> COMMUNITY ACTION</div>
-      <div class="hero-stat-panel">
-        <div class="panel-kicker">OUR PEOPLE</div>
-        <strong id="heroVolunteerCount">0</strong><span>registered volunteers</span>
-        <div class="trend"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      </div>
-      <div class="art-circle circle-a"></div>
-      <div class="art-circle circle-b"></div>
-      <div class="art-line"></div>
-      <div class="mini-card"><b id="heroActiveCount">0</b><span>active volunteers</span></div>
-    </div>
-  </div>
-</section>
+<body data-page="home">
+  <a class="skip-link" href="#main">Skip to main content</a>
 
-<section class="section white" id="about">
-  <div class="shell about-grid">
-    <div>
-      <span class="tag">WHO WE ARE</span>
-      <h2>Service with purpose. Leadership with courage. Impact with evidence.</h2>
-    </div>
-    <div>
-      <p class="section-copy">Youth Volunteer of RP Gishari College is a student-led community for volunteering, learning, leadership, innovation and practical service. We document the work honestly so that youth action can be seen, learned from and multiplied.</p>
-      <div class="quote">“Urubyiruko si abazaba igihugu gusa — ni imbaraga zirimo kukubaka uyu munsi.”</div>
-    </div>
-  </div>
-</section>
+  <!-- Site-wide announcement (filled from site_settings.announcement) -->
+  <div id="announcement" class="announcement" role="status" hidden></div>
 
-<section class="section impact-section" id="impact">
-  <div class="shell">
-    <div class="section-head">
-      <div>
-        <span class="tag">LIVE VOLUNTEER IMPACT</span>
-        <h2>The people behind the impact.</h2>
-      </div>
-      <p>These numbers come from the live volunteer database. Names are never displayed on this public page.</p>
+  <!-- =========================== HEADER =========================== -->
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="#top" aria-label="Home">
+        <span class="brand__mark" aria-hidden="true">Y</span>
+        <span data-site-title>Youth Volunteer Platform</span>
+      </a>
+      <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="main-nav" aria-expanded="false" aria-label="Toggle navigation">&#9776;</button>
+      <nav id="main-nav" class="nav" aria-label="Main navigation" data-open="false">
+        <a href="#impact">Impact</a>
+        <a href="#news">News</a>
+        <a href="#ideas">Share an idea</a>
+        <a href="#join">Volunteer</a>
+        <a id="admin-link" href="admin.html" hidden>Admin</a>
+        <a class="btn btn--danger" href="#join">Join now</a>
+      </nav>
     </div>
-    <div class="number-grid">
-      <article><span>REGISTERED</span><strong id="statVolunteers">0</strong><small>all applications in the database</small></article>
-      <article><span>ACTIVE</span><strong id="statActive">0</strong><small>approved & participating</small></article>
-      <article><span>STORIES</span><strong id="statActivities">0</strong><small>published activities</small></article>
-      <article><span>IDEAS</span><strong id="statIdeas">0</strong><small>community ideas received</small></article>
-    </div>
-    <div class="chart-grid">
-      <article class="chart-card">
-        <div class="chart-title"><span class="tag">SEX DISTRIBUTION</span><h3>Female & male volunteers</h3></div>
-        <div class="chart-body">
-          <div class="donut" id="sexDonut"><div class="donut-center"><b id="sexTotal">0</b><span>volunteers</span></div></div>
-          <div id="sexLegend" class="chart-legend"></div>
-        </div>
-      </article>
-      <article class="chart-card">
-        <div class="chart-title"><span class="tag">MEMBERSHIP STATUS</span><h3>Current volunteer status</h3></div>
-        <div class="chart-body">
-          <div class="donut status-donut" id="statusDonut"><div class="donut-center"><b id="statusTotal">0</b><span>records</span></div></div>
-          <div id="statusLegend" class="chart-legend"></div>
-        </div>
-      </article>
-    </div>
-  </div>
-</section>
+  </header>
 
-<section class="section navy" id="stories">
-  <div class="shell">
-    <div class="section-head light">
-      <div>
-        <span class="tag">STORIES FROM THE FIELD</span>
-        <h2>See what young people are doing.</h2>
-      </div>
-      <p>Reports, photos, audio, video, PDFs and other resources published by verified administrators.</p>
-    </div>
-    <div id="storiesGrid" class="stories-grid">
-      <div class="loading-box">Loading stories…</div>
-    </div>
-  </div>
-</section>
+  <main id="main">
+    <div id="backend-notice" hidden></div>
 
-<section class="section white" id="join">
-  <div class="shell join-grid">
-    <div>
-      <span class="tag">JOIN THE MOVEMENT</span>
-      <h2>Your volunteer journey starts in one place.</h2>
-      <p class="section-copy">Registration, login, application status and your volunteer account now live inside the dedicated <b>Volunteer Login</b> portal — keeping the homepage clean and focused on impact.</p>
-      <div class="feature-list">
-        <p>✓ Register your complete volunteer profile</p>
-        <p>✓ Check approval status securely</p>
-        <p>✓ Login only after the administrator activates your account</p>
-        <p>✓ Admin-created records can later be claimed with the same email</p>
-      </div>
-    </div>
-    <div class="form-card portal-cta-card">
-      <span class="tag">VOLUNTEER ACCESS</span>
-      <h3>Volunteer Login & Registration</h3>
-      <p>Go to the volunteer portal to register, login or check your membership status.</p>
-      <a class="btn btn-red btn-block" href="?portal=volunteer">Open Volunteer Portal</a>
-    </div>
-  </div>
-</section>
-
-<section class="section red-soft" id="ideas">
-  <div class="shell ideas-grid">
-    <div>
-      <span class="tag">YOUR VOICE MATTERS</span>
-      <h2>Start an idea.</h2>
-      <p>Tell Youth Volunteers about an activity, campaign, partnership, training, community need or innovation you believe we should explore.</p>
-    </div>
-    <div class="form-card">
-      <form id="ideaForm" class="form-grid">
-        <div class="form-row">
-          <label>Name (optional)<input name="name"></label>
-          <label>Email (optional)<input name="email" type="email"></label>
-        </div>
-        <label>Your idea<textarea name="idea" rows="6" required></textarea></label>
-        <button class="btn btn-blue btn-block" type="submit">Send my idea</button>
-        <div id="ideaMessage" class="form-message"></div>
-      </form>
-    </div>
-  </div>
-</section>
-
-<section id="volunteerPortal" class="portal-page hidden">
-  <div class="shell portal-shell">
-    <div class="portal-hero">
-      <div>
-        <span class="tag">VOLUNTEER PORTAL</span>
-        <h1>Welcome to Youth Volunteer access.</h1>
-        <p>Register once, wait for manual approval, then use this portal to access your volunteer account. Administrators manage approvals separately.</p>
-      </div>
-      <a href="index.html" class="btn btn-outline">← Back to website</a>
-    </div>
-    <div class="portal-tabs">
-      <button type="button" data-portal-tab="login" class="active">Login</button>
-      <button type="button" data-portal-tab="register">Register</button>
-    </div>
-    <section id="portalLoginPanel" class="portal-panel">
-      <div class="portal-grid">
-        <div class="login-card">
-          <form id="volunteerLoginForm" class="form-grid">
-            <div class="form-title"><span>EXISTING VOLUNTEER</span><h3>Sign in to your account</h3></div>
-            <label>Email<input name="email" type="email" required autocomplete="email"></label>
-            <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
-            <button class="btn btn-blue btn-block">Sign in</button>
-            <div id="loginMessage" class="form-message"></div>
-          </form>
-        </div>
-        <div class="portal-info">
-          <span class="tag">YOUR STATUS</span>
-          <h3>Pending, active or suspended.</h3>
-          <p>New applications remain <b>Pending</b> until an administrator approves them. An account that is not active cannot enter the volunteer area.</p>
-          <button type="button" class="text-button" data-portal-tab="register">Need an account? Register here →</button>
+    <!-- ============================ HERO ============================ -->
+    <section class="hero" id="top">
+      <div class="container">
+        <h1 id="hero-heading">Volunteer. Lead. Change your community.</h1>
+        <p id="hero-tagline">Young people serving their communities.</p>
+        <div class="hero__actions">
+          <a class="btn btn--light" href="#join">Become a volunteer</a>
+          <a class="btn btn--ghost-light" href="#ideas">Share a civic idea</a>
         </div>
       </div>
     </section>
-    <section id="portalRegisterPanel" class="portal-panel hidden">
-      <div class="form-card">
-        <div class="form-title">
-          <span>NEW VOLUNTEER</span>
-          <h3>Create your membership application</h3>
-          <p class="section-copy">If an admin has already created a volunteer record for your email, this registration will automatically claim that record.</p>
+
+    <!-- ========================= TELEMETRY ========================== -->
+    <section class="telemetry" id="impact" aria-labelledby="impact-title">
+      <div class="container">
+        <h2 id="impact-title" class="visually-hidden">Platform impact</h2>
+        <div class="grid grid--4">
+          <div class="stat-card">
+            <div class="stat-card__label">Volunteers registered</div>
+            <div class="stat-card__value" data-stat="total_volunteers">0</div>
+            <p class="stat-card__hint">All-time sign-ups</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label">Active volunteers</div>
+            <div class="stat-card__value" data-stat="active_volunteers">0</div>
+            <p class="stat-card__hint">Approved and serving</p>
+          </div>
+          <div class="stat-card stat-card--accent">
+            <div class="stat-card__label">Joined in 30 days</div>
+            <div class="stat-card__value" data-stat="signups_last_30_days">0</div>
+            <p class="stat-card__hint">New this month</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label">Ideas shared</div>
+            <div class="stat-card__value" data-stat="total_ideas">0</div>
+            <p class="stat-card__hint">Crowd-sourced civic ideas</p>
+          </div>
         </div>
-        <form id="registrationForm" class="form-grid">
-          <div class="form-row">
-            <label>Full name<input name="full_name" required maxlength="120" autocomplete="name"></label>
-            <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      </div>
+    </section>
+
+    <!-- ============================ NEWS ============================ -->
+    <section class="section" id="news" aria-labelledby="news-title">
+      <div class="container">
+        <div class="section__head">
+          <h2 id="news-title">Latest news &amp; stories</h2>
+          <p>Updates, events and stories from volunteers across the platform.</p>
+        </div>
+        <div id="news-filters" class="chips" role="group" aria-label="Filter stories by type">
+          <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" class="chip" data-filter="news" aria-pressed="false">News</button>
+          <button type="button" class="chip" data-filter="event" aria-pressed="false">Events</button>
+          <button type="button" class="chip" data-filter="story" aria-pressed="false">Stories</button>
+          <button type="button" class="chip" data-filter="video" aria-pressed="false">Video</button>
+        </div>
+        <div id="news-grid" class="grid grid--auto" aria-live="polite">
+          <div class="empty-state">Loading stories…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ IDEAS =========================== -->
+    <section class="section section--alt" id="ideas" aria-labelledby="ideas-title">
+      <div class="container grid grid--2">
+        <div class="section__head">
+          <h2 id="ideas-title">Got an idea for your community?</h2>
+          <p>Tell us about a problem you have noticed or a project you would love to see. Every idea is read by our team. You do not need an account to submit one.</p>
+          <ul>
+            <li>Keep it specific: what, where and who it helps.</li>
+            <li>Your e-mail is optional and only visible to administrators.</li>
+          </ul>
+        </div>
+        <form id="idea-form" class="panel form" novalidate>
+          <div data-msg class="alert" hidden></div>
+          <div class="form__row">
+            <div class="field">
+              <label for="idea-name">Your name <span class="req">*</span></label>
+              <input id="idea-name" name="authorName" class="input" type="text" maxlength="120" autocomplete="name" required>
+              <p class="field__error" data-error-for="authorName"></p>
+            </div>
+            <div class="field">
+              <label for="idea-email">E-mail (optional)</label>
+              <input id="idea-email" name="authorEmail" class="input" type="email" maxlength="200" autocomplete="email">
+              <p class="field__error" data-error-for="authorEmail"></p>
+            </div>
           </div>
-          <div class="form-row">
-            <label>Telephone<input name="phone" type="tel" required placeholder="07…" autocomplete="tel"></label>
-            <label>Sex
-              <select name="sex" required>
-                <option value="">Select</option>
-                <option>Female</option>
-                <option>Male</option>
-                <option>Other</option>
-                <option>Prefer not to say</option>
-              </select>
-            </label>
+          <div class="field">
+            <label for="idea-category">Category</label>
+            <select id="idea-category" name="category" class="select">
+              <option value="general">General</option>
+              <option value="environment">Environment</option>
+              <option value="education">Education</option>
+              <option value="health">Health &amp; wellbeing</option>
+              <option value="safety">Safety</option>
+              <option value="technology">Technology</option>
+            </select>
           </div>
-          <div class="form-row">
-            <label>Student ID<input name="student_id" maxlength="60"></label>
-            <label>Year / Level
-              <select name="year_level" required>
-                <option value="">Select</option>
-                <option>Y1</option>
-                <option>Y2</option>
-                <option>Y3</option>
-                <option>B-Tech</option>
-              </select>
-            </label>
+          <div class="field">
+            <label for="idea-title">Idea title <span class="req">*</span></label>
+            <input id="idea-title" name="title" class="input" type="text" maxlength="160" required>
+            <p class="field__error" data-error-for="title"></p>
           </div>
-          <div class="form-row">
-            <label>Department<input name="department" required maxlength="120"></label>
-            <label>Option / Specialization<input name="option_name" required maxlength="120"></label>
+          <div class="field">
+            <label for="idea-body">Describe your idea <span class="req">*</span></label>
+            <textarea id="idea-body" name="body" class="textarea" maxlength="4000" required></textarea>
+            <p class="field__error" data-error-for="body"></p>
           </div>
-          <div class="form-row">
-            <label>Academic year / intake<input name="academic_year" maxlength="50" placeholder="2026/2027"></label>
-            <label>District<input name="district" maxlength="100"></label>
+          <!-- Honeypot: hidden from people, tempting to bots -->
+          <div class="honeypot" aria-hidden="true">
+            <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
           </div>
-          <div class="form-row">
-            <label>Availability
-              <select name="availability">
-                <option>Weekly</option>
-                <option>Monthly</option>
-                <option>Flexible</option>
-              </select>
-            </label>
-            <label>Preferred volunteer area<input name="preferred_area" maxlength="120" placeholder="Community service, ICT, environment…"></label>
-          </div>
-          <label>Skills / interests<textarea name="skills" rows="3"></textarea></label>
-          <div class="form-row">
-            <label>Emergency contact<input name="emergency_contact" maxlength="120"></label>
-            <label>Emergency telephone<input name="emergency_phone" type="tel" maxlength="30"></label>
-          </div>
-          <div class="form-row">
-            <label>Bank name<input name="bank_name" maxlength="120" placeholder="Bank name"></label>
-            <label>Name on bank account<input name="bank_account_name" maxlength="120"></label>
-          </div>
-          <label>Bank account number<input name="bank_account_number" maxlength="60" autocomplete="off" inputmode="numeric"></label>
-          <label>Why do you want to volunteer?<textarea name="motivation" rows="4" required></textarea></label>
-          <div class="agreement-box">
-            <label><input type="checkbox" name="agreement_conduct" required> I agree to the Youth Volunteer code of conduct and responsible participation.</label>
-            <label><input type="checkbox" name="agreement_data" required> I agree that RP Gishari College Youth Volunteers may process the information I provide for membership administration.</label>
-            <label><input type="checkbox" name="media_consent"> I consent to reasonable use of volunteer activity photos/videos for communication.</label>
-          </div>
-          <div class="form-row">
-            <label>Password<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
-            <label>Confirm password<input name="password2" type="password" minlength="8" required autocomplete="new-password"></label>
-          </div>
-          <button class="btn btn-red btn-block" type="submit">Submit volunteer application</button>
-          <div id="registrationMessage" class="form-message"></div>
+          <button class="btn btn--danger" type="submit">Submit idea</button>
         </form>
       </div>
     </section>
-    <section id="portalAccountPanel" class="portal-panel hidden">
-      <div class="account-card">
-        <div>
-          <span class="tag">MY VOLUNTEER ACCOUNT</span>
-          <h2>Hello, <span id="accountName">Volunteer</span>.</h2>
-          <p>Your account is active and linked to the Youth Volunteers program.</p>
+
+    <!-- ===================== VOLUNTEER AUTH PANEL ==================== -->
+    <section class="section" id="join" aria-labelledby="join-title">
+      <div class="container">
+        <div class="section__head text-center mx-auto">
+          <h2 id="join-title">Volunteer with us</h2>
+          <p>Create an account to join, or sign in to check your approval status.</p>
         </div>
-        <button id="portalLogout" class="btn btn-outline">Log out</button>
-      </div>
-      <div class="account-grid">
-        <article><span>Status</span><strong id="accountStatus">—</strong></article>
-        <article><span>Level</span><strong id="accountLevel">—</strong></article>
-        <article><span>Department</span><strong id="accountDepartment">—</strong></article>
-        <article><span>Email</span><strong id="accountEmail">—</strong></article>
-        <article><span>Telephone</span><strong id="accountPhone">—</strong></article>
-        <article><span>Joined</span><strong id="accountCreated">—</strong></article>
+
+        <div class="auth panel">
+          <!-- Shown when signed out -->
+          <div id="auth-guest">
+            <div class="tabs" role="tablist" aria-label="Account options">
+              <button class="tab" role="tab" id="tab-login" data-pane="login" aria-selected="true" aria-controls="pane-login">Sign in</button>
+              <button class="tab" role="tab" id="tab-register" data-pane="register" aria-selected="false" aria-controls="pane-register" tabindex="-1">Register</button>
+              <button class="tab" role="tab" id="tab-reset" data-pane="reset" aria-selected="false" aria-controls="pane-reset" tabindex="-1">Reset</button>
+            </div>
+
+            <!-- Pane 1: login -->
+            <div class="tab-pane" role="tabpanel" id="pane-login" data-pane="login" aria-labelledby="tab-login">
+              <form id="login-form" class="form" novalidate>
+                <div data-msg class="alert" hidden></div>
+                <div class="field">
+                  <label for="login-email">E-mail</label>
+                  <input id="login-email" name="email" class="input" type="email" autocomplete="email" required>
+                </div>
+                <div class="field">
+                  <label for="login-password">Password</label>
+                  <input id="login-password" name="password" class="input" type="password" autocomplete="current-password" required>
+                </div>
+                <button class="btn btn--primary btn--block" type="submit">Sign in</button>
+                <p class="muted text-center mb-0">
+                  New here? <a href="#join" data-goto="register">Create an account</a> ·
+                  <a href="#join" data-goto="reset">Forgot password?</a>
+                </p>
+              </form>
+            </div>
+
+            <!-- Pane 2: registration -->
+            <div class="tab-pane" role="tabpanel" id="pane-register" data-pane="register" aria-labelledby="tab-register" hidden>
+              <div id="register-closed" class="alert alert--info" hidden>Registration is temporarily closed. Please check back soon.</div>
+              <form id="register-form" class="form" novalidate>
+                <div data-msg class="alert" hidden></div>
+                <div class="field">
+                  <label for="reg-name">Full name <span class="req">*</span></label>
+                  <input id="reg-name" name="fullName" class="input" type="text" maxlength="120" autocomplete="name" required>
+                  <p class="field__error" data-error-for="fullName"></p>
+                </div>
+                <div class="field">
+                  <label for="reg-email">E-mail <span class="req">*</span></label>
+                  <input id="reg-email" name="email" class="input" type="email" maxlength="200" autocomplete="email" required>
+                  <p class="field__error" data-error-for="email"></p>
+                </div>
+                <div class="form__row">
+                  <div class="field">
+                    <label for="reg-password">Password <span class="req">*</span></label>
+                    <input id="reg-password" name="password" class="input" type="password" autocomplete="new-password" minlength="10" required>
+                    <p class="field__hint">10+ characters with upper, lower and a number.</p>
+                    <p class="field__error" data-error-for="password"></p>
+                  </div>
+                  <div class="field">
+                    <label for="reg-confirm">Confirm password <span class="req">*</span></label>
+                    <input id="reg-confirm" name="confirm" class="input" type="password" autocomplete="new-password" required>
+                    <p class="field__error" data-error-for="confirm"></p>
+                  </div>
+                </div>
+                <div class="form__row">
+                  <div class="field">
+                    <label for="reg-phone">Phone</label>
+                    <input id="reg-phone" name="phone" class="input" type="tel" maxlength="32" autocomplete="tel">
+                  </div>
+                  <div class="field">
+                    <label for="reg-city">City</label>
+                    <input id="reg-city" name="city" class="input" type="text" maxlength="80" autocomplete="address-level2">
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="reg-age">Age</label>
+                  <input id="reg-age" name="age" class="input" type="number" min="13" max="35" inputmode="numeric">
+                  <p class="field__error" data-error-for="age"></p>
+                </div>
+                <div class="field">
+                  <label for="reg-interests">What would you like to help with?</label>
+                  <textarea id="reg-interests" name="interests" class="textarea textarea--sm" maxlength="500"></textarea>
+                </div>
+                <div class="honeypot" aria-hidden="true">
+                  <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+                </div>
+                <div class="field">
+                  <label class="checkbox">
+                    <input type="checkbox" name="consent" required>
+                    <span>I agree to follow the volunteer code of conduct and consent to my details being stored to manage my volunteering.</span>
+                  </label>
+                  <p class="field__error" data-error-for="consent"></p>
+                </div>
+                <button class="btn btn--danger btn--block" type="submit">Create account</button>
+                <p class="muted text-center mb-0">Already registered? <a href="#join" data-goto="login">Sign in</a></p>
+              </form>
+            </div>
+
+            <!-- Pane 3: password reset -->
+            <div class="tab-pane" role="tabpanel" id="pane-reset" data-pane="reset" aria-labelledby="tab-reset" hidden>
+              <form id="reset-form" class="form" novalidate>
+                <div data-msg class="alert" hidden></div>
+                <p class="muted mb-0">Enter your e-mail and we will send you a link to choose a new password.</p>
+                <div class="field">
+                  <label for="reset-email">E-mail</label>
+                  <input id="reset-email" name="email" class="input" type="email" autocomplete="email" required>
+                </div>
+                <button class="btn btn--primary btn--block" type="submit">Send reset link</button>
+                <p class="muted text-center mb-0"><a href="#join" data-goto="login">Back to sign in</a></p>
+              </form>
+            </div>
+          </div>
+
+          <!-- Shown when signed in -->
+          <div id="auth-member" hidden>
+            <div class="session-card">
+              <div>
+                <h3 class="mb-0">Hello, <span id="member-name"></span></h3>
+                <p id="member-note" class="muted mb-0"></p>
+              </div>
+              <span id="member-status" class="badge status-pending">pending</span>
+            </div>
+            <div class="flex flex--wrap mt-4">
+              <button id="logout-btn" class="btn btn--outline" type="button">Sign out</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
-    <div class="copyright portal-copyright center-text">Copyright © <span id="portalYear"></span> Youth Volunteer of RP Gishari College. All rights reserved. Developed by MWAMINI Soulaiman Shyiraho Nimero +250785696336.</div>
-  </div>
-</section>
-</main>
-<footer class="site-footer">
-  <div class="shell footer-grid">
-    <div>
-      <b>Youth Volunteers • RP Gishari College</b>
-      <p>Youth service, leadership, documentation and community impact.</p>
+  </main>
+
+  <!-- Read-more dialog for news items. Content is set via textContent. -->
+  <dialog id="post-dialog" aria-labelledby="post-dialog-title">
+    <div class="dialog__inner">
+      <p id="post-dialog-meta" class="muted mb-0"></p>
+      <h2 id="post-dialog-title"></h2>
+      <p id="post-dialog-body" class="pre-wrap"></p>
+      <button id="post-dialog-close" class="btn btn--primary" type="button">Close</button>
     </div>
-    <div>
-      <b>Contact</b>
-      <p>Use the website registration, stories and ideas channels to connect with the program.</p>
+  </dialog>
+
+  <!-- =========================== FOOTER =========================== -->
+  <footer class="site-footer">
+    <div class="container flex flex--between flex--wrap">
+      <span>&copy; <span data-site-title>Youth Volunteer Platform</span></span>
+      <span><a href="#top">Back to top</a></span>
     </div>
-  </div>
-  <div class="shell copyright center-text">Copyright © <span id="year"></span> Youth Volunteer of RP Gishari College. All rights reserved. Developed by MWAMINI Soulaiman Shyiraho Nimero +250785696336.</div>
-</footer>
+  </footer>
 </body>
 </html>
