@@ -1,275 +1,236 @@
-<!doctype html>
+<!DOCTYPE html>
+<!--
+  Youth Volunteer Digital Platform :: admin.html
+  Administrative command panel.
+  - #guard      : shown to signed-out / non-admin visitors (client-side guard)
+  - #dashboard  : analytics, volunteer table, post creator, site settings
+  NOTE: the guard is a UX convenience. Real authorisation is enforced by
+  Row-Level Security and the protect_volunteer_privileges() trigger in schema.sql.
+-->
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Admin • Youth Volunteers</title>
-  <meta name="theme-color" content="#0a2d5e">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Command Panel</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#2d6aa8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' https: data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
   <link rel="stylesheet" href="styles.css">
-  <!-- Supabase ihamagarwa hano mbere ya app.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script defer src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </head>
 <body data-page="admin">
-  <div class="admin-top">
-    <div class="shell admin-top-inner">
-      <div>
-        <span class="eyebrow-light">RP GISHARI COLLEGE</span>
-        <b>Youth Volunteers Administration</b>
-      </div>
-      <div class="admin-user">
-        <span id="adminName">—</span>
-        <button id="logoutBtn" class="btn btn-small btn-light">Log out</button>
-      </div>
+  <a class="skip-link" href="#dashboard">Skip to dashboard</a>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="index.html">
+        <span class="brand__mark" aria-hidden="true">Y</span>
+        <span>Admin Command Panel</span>
+      </a>
+      <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="main-nav" aria-label="Toggle navigation">&#9776;</button>
+      <nav id="main-nav" class="nav" aria-label="Admin navigation" data-open="false">
+        <a href="index.html">Public site</a>
+        <span id="admin-name" class="muted"></span>
+        <button id="signout-btn" class="btn btn--ghost-light btn--sm" type="button">Sign out</button>
+      </nav>
     </div>
-  </div>
-  <main class="admin-main shell">
-    <section id="loginView" class="admin-login">
-      <div class="login-hero">
-        <span class="tag">AUTHORIZED ACCESS</span>
-        <h1>Volunteer administration.</h1>
-        <p>Only accounts whose profile role is <b>admin</b> and status is <b>approved</b> can enter this dashboard. Volunteer registration never grants admin access.</p>
-      </div>
-      <div class="login-card">
-        <form id="loginForm" class="form-grid">
-          <label>Email<input id="loginEmail" type="email" required></label>
-          <label>Password<input id="loginPassword" type="password" required></label>
-          <button class="btn btn-blue btn-block">Sign in as admin</button>
-          <div id="loginMessage" class="form-message"></div>
-        </form>
-        <button id="copySqlBtn" class="text-button" type="button">Copy Supabase setup SQL</button>
-      </div>
-    </section>
-    
-    <section id="dashboardView" class="hidden">
-      <div class="dashboard-title">
-        <div>
-          <span class="tag">CONTROL CENTER</span>
-          <h1>Welcome, <span id="adminNameLarge">Admin</span>.</h1>
-          <p id="adminEmail">—</p>
-        </div>
-        <a href="index.html" class="btn btn-outline">View website</a>
-      </div>
-      <div class="admin-stats">
-        <article><span>Registered</span><strong id="dashRegistered">0</strong></article>
-        <article><span>Pending</span><strong id="dashPending">0</strong></article>
-        <article><span>Active</span><strong id="dashActive">0</strong></article>
-        <article><span>New ideas</span><strong id="dashIdeas">0</strong></article>
-      </div>
-      
-      <section class="admin-card">
-        <div class="admin-section-head">
-          <div>
-            <span class="tag">VOLUNTEERS</span>
-            <h2>Membership review & export</h2>
+  </header>
+
+  <!-- ===================== ACCESS GUARD SCREEN ===================== -->
+  <section id="guard" class="guard-screen">
+    <div class="panel">
+      <h1 id="guard-title">Checking access…</h1>
+      <p id="guard-text" class="muted">Verifying your administrator session.</p>
+      <a id="guard-link" class="btn btn--primary" href="index.html#join" hidden>Go to sign in</a>
+    </div>
+  </section>
+
+  <!-- ============================ DASHBOARD ============================ -->
+  <div id="dashboard" class="admin-shell" hidden>
+    <aside class="sidebar" aria-label="Sections">
+      <h2>Sections</h2>
+      <a href="#analytics">Analytics</a>
+      <a href="#volunteers">Volunteers</a>
+      <a href="#publish">Publish media</a>
+      <a href="#posts">Manage posts</a>
+      <a href="#settings">Site settings</a>
+    </aside>
+
+    <main class="admin-main">
+
+      <!-- ----------------------- ANALYTICS ----------------------- -->
+      <section id="analytics" aria-labelledby="analytics-title">
+        <h2 id="analytics-title">Analytics</h2>
+        <div class="grid grid--4">
+          <div class="stat-card">
+            <div class="stat-card__label">Total volunteers</div>
+            <div class="stat-card__value" id="kpi-total">0</div>
           </div>
-          <div class="export-row">
-            <button data-export="all" class="btn btn-blue btn-small">Download all</button>
-            <button data-export="Y1" class="btn btn-outline btn-small">Y1</button>
-            <button data-export="Y2" class="btn btn-outline btn-small">Y2</button>
-            <button data-export="Y3" class="btn btn-outline btn-small">Y3</button>
-            <button data-export="B-Tech" class="btn btn-outline btn-small">B-Tech</button>
+          <div class="stat-card stat-card--accent">
+            <div class="stat-card__label">Awaiting approval</div>
+            <div class="stat-card__value" id="kpi-pending">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label">Administrators</div>
+            <div class="stat-card__value" id="kpi-admins">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__label">Ideas received</div>
+            <div class="stat-card__value" id="kpi-ideas">0</div>
+            <p class="stat-card__hint"><span id="kpi-posts">0</span> published posts</p>
+          </div>
+        </div>
+
+        <div class="grid grid--2 mt-4">
+          <div class="panel">
+            <div class="panel__title"><h3>Volunteer status mix</h3></div>
+            <div class="donut-wrap">
+              <!-- Pure CSS conic-gradient donut; percentages set by app.js as custom properties -->
+              <div id="status-donut" class="donut" role="img" aria-label="Volunteer status distribution" data-center="0"></div>
+              <ul class="legend">
+                <li><i class="l-active"></i><span id="legend-active">Active</span></li>
+                <li><i class="l-pending"></i><span id="legend-pending">Pending</span></li>
+                <li><i class="l-suspended"></i><span id="legend-suspended">Suspended</span></li>
+              </ul>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel__title"><h3>Approval rate</h3></div>
+            <div id="approval-meter" class="meter" role="img" aria-label="Approval rate"></div>
+            <p id="approval-label" class="muted mt-4">0% of sign-ups approved</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ----------------------- VOLUNTEERS ---------------------- -->
+      <section id="volunteers" class="panel" aria-labelledby="volunteers-title">
+        <div class="panel__title">
+          <h3 id="volunteers-title">Volunteer management</h3>
+          <div class="flex flex--wrap">
+            <button id="refresh-btn" class="btn btn--outline btn--sm" type="button">Refresh</button>
+            <button id="export-csv" class="btn btn--primary btn--sm" type="button">Export CSV</button>
           </div>
         </div>
         <div class="toolbar">
-          <input id="volunteerSearch" placeholder="Search name, email, phone, department…">
-          <select id="volunteerStatusFilter">
+          <label class="visually-hidden" for="volunteer-search">Search volunteers</label>
+          <input id="volunteer-search" class="input" type="search" placeholder="Search name, e-mail, city, status…" autocomplete="off">
+          <label class="visually-hidden" for="status-filter">Filter by status</label>
+          <select id="status-filter" class="select select--auto">
             <option value="all">All statuses</option>
             <option value="pending">Pending</option>
             <option value="active">Active</option>
             <option value="suspended">Suspended</option>
           </select>
-          <select id="volunteerYearFilter">
-            <option value="all">All levels</option>
-            <option>Y1</option>
-            <option>Y2</option>
-            <option>Y3</option>
-            <option>B-Tech</option>
-          </select>
         </div>
         <div class="table-wrap">
-          <table>
+          <table id="volunteer-table" class="table">
+            <caption class="visually-hidden">Volunteers. Click a column heading to sort.</caption>
             <thead>
-              <tr><th>Name</th><th>Contact</th><th>Study</th><th>Bank details</th><th>Status</th><th>Role</th><th>Action</th></tr>
+              <tr>
+                <th scope="col" data-sort="full_name" aria-sort="none">Name</th>
+                <th scope="col" data-sort="email" aria-sort="none">Email</th>
+                <th scope="col" data-sort="city" aria-sort="none">City</th>
+                <th scope="col" data-sort="age" aria-sort="none">Age</th>
+                <th scope="col" data-sort="status" aria-sort="none">Status</th>
+                <th scope="col" data-sort="role" aria-sort="none">Role</th>
+                <th scope="col" data-sort="created_at" aria-sort="descending">Joined</th>
+                <th scope="col">Actions</th>
+              </tr>
             </thead>
-            <tbody id="volunteerTable"></tbody>
+            <tbody id="volunteer-body">
+              <tr><td colspan="8" class="muted text-center">Loading volunteers…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="table-count" class="table-foot" aria-live="polite"></p>
+      </section>
+
+      <!-- --------------------- PUBLISH MEDIA --------------------- -->
+      <section id="publish" class="panel" aria-labelledby="publish-title">
+        <div class="panel__title"><h3 id="publish-title">Publish a media post</h3></div>
+        <form id="post-form" class="form" novalidate>
+          <div data-msg class="alert" hidden></div>
+          <div class="form__row">
+            <div class="field">
+              <label for="post-title">Title <span class="req">*</span></label>
+              <input id="post-title" name="title" class="input" type="text" maxlength="200" required>
+            </div>
+            <div class="field">
+              <label for="post-type">Type</label>
+              <select id="post-type" name="mediaType" class="select">
+                <option value="news">News</option>
+                <option value="event">Event</option>
+                <option value="story">Story</option>
+                <option value="video">Video</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="post-summary">Short summary</label>
+            <input id="post-summary" name="summary" class="input" type="text" maxlength="500">
+          </div>
+          <div class="field">
+            <label for="post-image">Image URL (https)</label>
+            <input id="post-image" name="imageUrl" class="input" type="url" placeholder="https://…">
+          </div>
+          <div class="field">
+            <label for="post-body">Body <span class="req">*</span></label>
+            <textarea id="post-body" name="body" class="textarea" required></textarea>
+          </div>
+          <label class="switch"><input type="checkbox" name="isPublished" checked> Publish immediately</label>
+          <div><button class="btn btn--danger" type="submit">Save post</button></div>
+        </form>
+      </section>
+
+      <!-- ----------------------- MANAGE POSTS -------------------- -->
+      <section id="posts" class="panel" aria-labelledby="posts-title">
+        <div class="panel__title"><h3 id="posts-title">Manage posts</h3></div>
+        <div class="table-wrap">
+          <table class="table table--compact">
+            <thead>
+              <tr><th scope="col">Title</th><th scope="col">Type</th><th scope="col">State</th><th scope="col">Actions</th></tr>
+            </thead>
+            <tbody id="posts-body">
+              <tr><td colspan="4" class="muted text-center">Loading posts…</td></tr>
+            </tbody>
           </table>
         </div>
       </section>
 
-      <section class="admin-card manual-volunteer-card">
-        <div class="admin-section-head">
-          <div>
-            <span class="tag">ADD VOLUNTEER</span>
-            <h2>Write a new volunteer record</h2>
-            <p>This creates the volunteer directly in Supabase. They can later use Volunteer Login → Register with the same email to claim the record and create their password.</p>
-          </div>
-        </div>
-        <form id="manualVolunteerForm" class="form-grid">
-          <div class="form-row">
-            <label>Full name<input name="full_name" required></label>
-            <label>Email<input name="email" type="email" required></label>
-          </div>
-          <div class="form-row">
-            <label>Telephone<input name="phone" type="tel" required></label>
-            <label>Sex
-              <select name="sex" required>
-                <option>Female</option>
-                <option>Male</option>
-                <option>Other</option>
-                <option>Prefer not to say</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-row">
-            <label>Student ID<input name="student_id"></label>
-            <label>Year / Level
-              <select name="year_level" required>
-                <option>Y1</option>
-                <option>Y2</option>
-                <option>Y3</option>
-                <option>B-Tech</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-row">
-            <label>Department<input name="department" required></label>
-            <label>Option / Specialization<input name="option_name" required></label>
-          </div>
-          <div class="form-row">
-            <label>Academic year<input name="academic_year"></label>
-            <label>District<input name="district"></label>
-          </div>
-          <div class="form-row">
-            <label>Availability
-              <select name="availability">
-                <option>Weekly</option>
-                <option>Monthly</option>
-                <option>Flexible</option>
-              </select>
-            </label>
-            <label>Preferred area<input name="preferred_area"></label>
-          </div>
-          <label>Skills / interests<textarea name="skills" rows="2"></textarea></label>
-          <div class="form-row">
-            <label>Emergency contact<input name="emergency_contact"></label>
-            <label>Emergency telephone<input name="emergency_phone" type="tel"></label>
-          </div>
-          <div class="form-row">
-            <label>Bank name<input name="bank_name"></label>
-            <label>Name on bank account<input name="bank_account_name"></label>
-          </div>
-          <label>Bank account number<input name="bank_account_number" inputmode="numeric"></label>
-          <label>Motivation / reason for volunteering<textarea name="motivation" rows="3" required></textarea></label>
-          <div class="agreement-box">
-            <label><input type="checkbox" name="agreement_conduct" required> Volunteer agreement accepted.</label>
-            <label><input type="checkbox" name="agreement_data" required> Data-processing agreement accepted.</label>
-            <label><input type="checkbox" name="media_consent"> Media consent granted.</label>
-          </div>
-          <div class="form-row">
-            <label>Initial status
-              <select name="status">
-                <option value="pending">Pending</option>
-                <option value="active">Active</option>
-                <option value="suspended">Suspended</option>
-              </select>
-            </label>
-            <div></div>
-          </div>
-          <button class="btn btn-red">Save volunteer to Supabase</button>
-          <div id="manualVolunteerMessage" class="form-message"></div>
-        </form>
-      </section>
-
-      <section class="admin-grid-two">
-        <section class="admin-card">
-          <div class="admin-section-head">
-            <div>
-              <span class="tag">ADMIN TEAM</span>
-              <h2>Admins have equal access.</h2>
+      <!-- ---------------------- SITE SETTINGS -------------------- -->
+      <section id="settings" class="panel" aria-labelledby="settings-title">
+        <div class="panel__title"><h3 id="settings-title">Site settings</h3></div>
+        <form id="settings-form" class="form" novalidate>
+          <div data-msg class="alert" hidden></div>
+          <div class="form__row">
+            <div class="field">
+              <label for="set-title">Site title</label>
+              <input id="set-title" name="site_title" class="input" type="text" maxlength="120">
+            </div>
+            <div class="field">
+              <label for="set-contact">Contact e-mail</label>
+              <input id="set-contact" name="contact_email" class="input" type="email" maxlength="200">
             </div>
           </div>
-          <div id="adminList"></div>
-        </section>
-        <section class="admin-card">
-          <div class="admin-section-head">
-            <div>
-              <span class="tag">IDEAS</span>
-              <h2>Community ideas</h2>
-            </div>
+          <div class="field">
+            <label for="set-hero">Home page headline</label>
+            <input id="set-hero" name="hero_heading" class="input" type="text" maxlength="160">
           </div>
-          <div id="ideaList"></div>
-        </section>
-      </section>
-
-      <section class="admin-card" id="postManagement">
-        <div class="admin-section-head">
-          <div>
-            <span class="tag">CONTENT</span>
-            <h2>Publish stories & resources</h2>
+          <div class="field">
+            <label for="set-tagline">Tagline</label>
+            <input id="set-tagline" name="site_tagline" class="input" type="text" maxlength="200">
           </div>
-          <button id="resetPostBtn" class="btn btn-outline btn-small">New post</button>
-        </div>
-        <form id="postForm" class="form-grid">
-          <input id="postId" type="hidden">
-          <div class="form-row">
-            <label>Title<input id="postTitle" required></label>
-            <label>Category
-              <select id="postCategory">
-                <option>Community Service</option>
-                <option>Leadership</option>
-                <option>Environment</option>
-                <option>Education</option>
-                <option>Innovation</option>
-                <option>Report</option>
-                <option>Announcement</option>
-              </select>
-            </label>
+          <div class="field">
+            <label for="set-announce">Announcement banner (leave empty to hide)</label>
+            <input id="set-announce" name="announcement" class="input" type="text" maxlength="240">
           </div>
-          <label>Excerpt<textarea id="postExcerpt" rows="2"></textarea></label>
-          <label>Full story / report<textarea id="postContent" rows="6"></textarea></label>
-          <div class="form-row">
-            <label>Cover image<input id="coverFile" type="file" accept="image/*"></label>
-            <label>Media / resource<input id="mediaFile" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>
-          </div>
-          <div class="form-row">
-            <label>Publishing status
-              <select id="postPublished">
-                <option value="false">Draft</option>
-                <option value="true">Published</option>
-              </select>
-            </label>
-            <div></div>
-          </div>
-          <button class="btn btn-red">Save story</button>
-          <div id="postMessage" class="form-message"></div>
-        </form>
-        <div id="adminPostList" class="admin-list"></div>
-      </section>
-
-      <section class="admin-card">
-        <div class="admin-section-head">
-          <div>
-            <span class="tag">HOMEPAGE</span>
-            <h2>Public wording</h2>
-          </div>
-        </div>
-        <form id="settingsForm" class="form-grid">
-          <div class="form-row">
-            <label>College / program name<input id="setCollegeName"></label>
-            <label>Logo URL (optional)<input id="setLogoUrl"></label>
-          </div>
-          <label>Hero title<textarea id="setHeroTitle" rows="2"></textarea></label>
-          <label>Hero subtitle<textarea id="setHeroSubtitle" rows="3"></textarea></label>
-          <label>About text<textarea id="setHeroText" rows="4"></textarea></label>
-          <button class="btn btn-blue">Save homepage settings</button>
-          <div id="settingsMessage" class="form-message"></div>
+          <label class="switch"><input type="checkbox" name="registration_open" checked> Volunteer registration is open</label>
+          <div><button class="btn btn--primary" type="submit">Save settings</button></div>
         </form>
       </section>
-    </section>
-  </main>
-  <footer class="site-footer">
-    <div class="shell copyright center-text">Copyright © <span id="year"></span> Youth Volunteer of RP Gishari College. All rights reserved. Developed by MWAMINI Soulaiman Shyiraho Nimero +250785696336.</div>
-  </footer>
+    </main>
+  </div>
 </body>
 </html>
