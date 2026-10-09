@@ -432,7 +432,7 @@ async function loadReactions(client, type, ids) {
   if (!ids.length) return;
   const res = await safe(() => client.rpc('get_reactions', { p_type: type, p_ids: ids, p_client: getClientToken() }));
   if (res.error || !Array.isArray(res.data)) {
-    document.body.classList.add('no-reactions'); // sql/reactions.sql not installed yet: hide the buttons
+    console.warn('Reactions could not be loaded (is sql/reactions.sql installed?):', res.error); // buttons stay visible
     return;
   }
   ids.forEach((id) => reactionState.set(`${type}:${id}`, { counts: {}, mine: new Set() }));
