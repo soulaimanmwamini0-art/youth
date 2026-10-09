@@ -35,6 +35,7 @@
       <nav aria-label="Primary">
         <ul class="nav-links" id="nav-links">
           <li><a href="#home">Home</a></li>
+          <li><a href="#announcements">Announcements</a></li>
           <li><a href="#impact">Impact</a></li>
           <li><a href="#ideas">Ideas Box</a></li>
           <li><a href="#stories">Stories</a></li>
@@ -60,6 +61,19 @@
           <span>Student-led projects</span>
           <span>Training and mentoring</span>
           <span>Real community impact</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== ANNOUNCEMENTS ========================== -->
+    <section class="section section--alt" id="announcements" aria-labelledby="announce-title">
+      <div class="container">
+        <div class="section-head">
+          <h2 id="announce-title">Announcements</h2>
+          <p>Latest news, events and deadlines from the coordination team.</p>
+        </div>
+        <div class="grid grid--3" id="announce-list" aria-live="polite">
+          <div class="empty-state">Loading announcements&hellip;</div>
         </div>
       </div>
     </section>
@@ -144,10 +158,7 @@
     <!-- Sign in, request to join and the member inbox ALL live here. -->
     <section class="section" id="join" aria-labelledby="join-title">
       <div class="container">
-        <div class="section-head text-center" style="margin-inline:auto">
-          <h2 id="join-title">Join Us</h2>
-          <p>Already approved? Sign in. New here? Send a join request and an administrator will activate your profile. Questions? Write to <span id="contact-email">hello@example.org</span>.</p>
-        </div>
+        <h2 id="join-title" class="visually-hidden">Join Us</h2>
 
         <div id="auth-area">
           <div class="tabs" role="tablist" aria-label="Account">
@@ -215,13 +226,34 @@
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="container flex flex--wrap flex--between">
-      <div class="footer-stack">
-        <span id="footer-text">RP-GISHARI COLLEGE Youth Volunteer. Built by young people, for young people.</span>
-        <span class="credit">Website developed by <strong>MWAAMINI Soulaiman</strong></span>
+  <footer class="site-footer" id="contact">
+    <div class="container footer-grid">
+      <div class="footer-col">
+        <h4>RP-GISHARI COLLEGE</h4>
+        <p id="footer-text">RP-GISHARI COLLEGE Youth Volunteer. Built by young people, for young people.</p>
       </div>
-      <a href="#home">Back to top</a>
+      <div class="footer-col">
+        <h4>Contact us</h4>
+        <ul class="footer-list">
+          <li><span class="label">E-mail</span><a id="footer-email" href="mailto:soulaimanmwamini0@gmail.com">soulaimanmwamini0@gmail.com</a></li>
+          <li id="footer-phone-row" hidden><span class="label">Telephone</span><a id="footer-phone" href="#contact"></a></li>
+          <li id="footer-address-row" hidden><span class="label">Address</span><span id="footer-address"></span></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Quick links</h4>
+        <ul class="footer-list">
+          <li><a href="#announcements">Announcements</a></li>
+          <li><a href="#ideas">Ideas box</a></li>
+          <li><a href="#stories">Volunteer stories</a></li>
+          <li><a href="#join">Join Us</a></li>
+          <li><a href="#home">Back to top</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p class="credit">Website developed by <strong>Eng. MWA.Soul</strong></p>
+      <p class="copyright">Copyright &copy; 2025 YVs. All rights reserved.</p>
     </div>
   </footer>
 
