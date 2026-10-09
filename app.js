@@ -1168,7 +1168,7 @@ function initVolunteerTable(client) {
       return;
     }
 
-    const res = await safe(() => client.from('volunteers').insert({ full_name, email, phone, role, status: 'active' }));
+    const res = await safe(() => client.rpc('admin_create_volunteer', { p_full_name: full_name, p_email: email, p_phone: phone, p_role: role }));
     if (res.error) {
       console.error('Create volunteer profile failed:', res.error);
       setMessage('cv-msg', `Could not create the profile: ${errText(res.error)}`, 'error');
@@ -1176,7 +1176,7 @@ function initVolunteerTable(client) {
     }
 
     ev.target.reset();
-    setMessage('cv-msg', `Profile created for ${email}. If they have not registered themselves, add the same e-mail under Supabase Authentication > Users so they can sign in.`, 'success');
+    setMessage('cv-msg', `Profile created and activated for ${email}. They can sign in now.`, 'success');
     await loadVolunteers(client);
   });
 }
@@ -1231,18 +1231,18 @@ function initRequests(client) {
 
     if (action === 'approve') {
       const email = String(req.email).toLowerCase();
-      const exists = state.volunteers.some((v) => String(v.email).toLowerCase() === email);
-      if (!exists) {
-        let made = await safe(() => client.from('volunteers').insert({ full_name: req.full_name, email, phone: req.phone || '', role: 'volunteer', status: 'active' }));
-        if (made.error && made.error.code === '23505') {
-          // A profile with this e-mail already exists (the list was stale): just activate it.
-          made = await safe(() => client.from('volunteers').update({ status: 'active' }).eq('email', email));
-        }
-        if (made.error) {
-          console.error('Create volunteer profile failed:', made.error);
-          toast(`Could not create the volunteer profile: ${errText(made.error)}`, 'error');
-          return;
-        }
+      const existing = state.volunteers.find((v) => String(v.email).toLowerCase() === email);
+      let made;
+      if (!existing) {
+        // The database function links the profile to the person's sign-in account.
+        made = await safe(() => client.rpc('admin_create_volunteer', { p_full_name: req.full_name, p_email: email, p_phone: req.phone || '', p_role: 'volunteer' }));
+      } else if (existing.status !== 'active') {
+        made = await safe(() => client.from('volunteers').update({ status: 'active' }).eq('id', existing.id));
+      }
+      if (made && made.error) {
+        console.error('Create volunteer profile failed:', made.error);
+        toast(`Could not create the volunteer profile: ${errText(made.error)}`, 'error');
+        return;
       }
       res = await safe(() => client.from('join_requests').update({ status: 'approved' }).eq('id', id));
     } else if (action === 'reject') {
