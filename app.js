@@ -247,6 +247,13 @@ async function safe(fn) {
   }
 }
 
+/** Short, readable reason from a Supabase error (admin screens only). */
+function errText(err) {
+  if (!err) return 'unknown error';
+  const parts = [err.message, err.details, err.hint].filter(Boolean);
+  return (parts.join(' | ') || String(err)).slice(0, 220);
+}
+
 /** Reads every row of a table in 1000-row pages (Supabase caps a single read). */
 async function fetchAll(client, table, orderCol = 'created_at', ascending = false) {
   const rows = [];
@@ -1162,7 +1169,11 @@ function initVolunteerTable(client) {
     }
 
     const res = await safe(() => client.from('volunteers').insert({ full_name, email, phone, role, status: 'active' }));
-    if (res.error) { setMessage('cv-msg', 'Could not create the profile. Check the details and try again.', 'error'); return; }
+    if (res.error) {
+      console.error('Create volunteer profile failed:', res.error);
+      setMessage('cv-msg', `Could not create the profile: ${errText(res.error)}`, 'error');
+      return;
+    }
 
     ev.target.reset();
     setMessage('cv-msg', `Profile created for ${email}. If they have not registered themselves, add the same e-mail under Supabase Authentication > Users so they can sign in.`, 'success');
@@ -1222,8 +1233,16 @@ function initRequests(client) {
       const email = String(req.email).toLowerCase();
       const exists = state.volunteers.some((v) => String(v.email).toLowerCase() === email);
       if (!exists) {
-        const made = await safe(() => client.from('volunteers').insert({ full_name: req.full_name, email, phone: req.phone || '', role: 'volunteer', status: 'active' }));
-        if (made.error) { toast('Could not create the volunteer profile.', 'error'); return; }
+        let made = await safe(() => client.from('volunteers').insert({ full_name: req.full_name, email, phone: req.phone || '', role: 'volunteer', status: 'active' }));
+        if (made.error && made.error.code === '23505') {
+          // A profile with this e-mail already exists (the list was stale): just activate it.
+          made = await safe(() => client.from('volunteers').update({ status: 'active' }).eq('email', email));
+        }
+        if (made.error) {
+          console.error('Create volunteer profile failed:', made.error);
+          toast(`Could not create the volunteer profile: ${errText(made.error)}`, 'error');
+          return;
+        }
       }
       res = await safe(() => client.from('join_requests').update({ status: 'approved' }).eq('id', id));
     } else if (action === 'reject') {
