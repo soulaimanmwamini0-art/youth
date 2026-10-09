@@ -368,6 +368,205 @@ async function loadPublicStats(client) {
   animateCount('stat-ideas', stats.ideas_received);
 }
 
+/* 5.0 Square cards, reactions and the read-more dialog ---------------------- */
+
+const ANNOUNCE_LABELS = { general: 'Announcement', event: 'Event', deadline: 'Deadline', urgent: 'Urgent' };
+
+function announceCategory(value) {
+  return Object.prototype.hasOwnProperty.call(ANNOUNCE_LABELS, value) ? value : 'general';
+}
+
+const REACTIONS = [
+  { key: 'like', icon: '\u{1F44D}', label: 'Like' },
+  { key: 'love', icon: '❤️', label: 'Love' },
+  { key: 'clap', icon: '\u{1F44F}', label: 'Applaud' },
+  { key: 'wow',  icon: '\u{1F62E}', label: 'Wow' },
+];
+const CARD_TEXT_LIMIT = 120;
+
+const publicItems = { post: new Map(), announcement: new Map() };
+const reactionState = new Map();   // "type:id" -> { counts: {key: n}, mine: Set }
+const pendingReactions = new Set();
+let clientToken = '';
+
+/** Anonymous per-browser token so one visitor counts once per reaction. No personal data. */
+function getClientToken() {
+  if (clientToken) return clientToken;
+  try { clientToken = window.localStorage.getItem('yv_client') || ''; } catch (_e) { clientToken = ''; }
+  if (!clientToken) {
+    clientToken = window.crypto && window.crypto.randomUUID
+      ? window.crypto.randomUUID()
+      : `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
+    try { window.localStorage.setItem('yv_client', clientToken); } catch (_e) { /* private mode: token lasts for this visit */ }
+  }
+  return clientToken;
+}
+
+function excerptOf(text, limit) {
+  const t = String(text || '').trim();
+  return t.length > limit ? `${t.slice(0, limit).trimEnd()}...` : t;
+}
+
+function reactionBarHtml(type, id) {
+  const st = reactionState.get(`${type}:${id}`) || { counts: {}, mine: new Set() };
+  return REACTIONS.map((r) => {
+    const n = st.counts[r.key] || 0;
+    const on = st.mine.has(r.key);
+    return `<button class="react-btn${on ? ' is-mine' : ''}" type="button" data-react="${esc(r.key)}" aria-pressed="${on}" aria-label="${esc(r.label)}${n ? ` (${n})` : ''}" title="${esc(r.label)}"><span aria-hidden="true">${r.icon}</span><b>${n || ''}</b></button>`;
+  }).join('');
+}
+
+function reactionsWrap(type, id) {
+  return `<div class="reactions" role="group" aria-label="React" data-rtype="${esc(type)}" data-rid="${esc(id)}">${reactionBarHtml(type, id)}</div>`;
+}
+
+/** Re-renders every visible reaction bar (card and dialog) for one item. */
+function refreshReactionBars(type, id) {
+  const html = reactionBarHtml(type, id);
+  document.querySelectorAll('.reactions').forEach((el) => {
+    if (el.getAttribute('data-rtype') === type && el.getAttribute('data-rid') === String(id)) el.innerHTML = html;
+  });
+}
+
+async function loadReactions(client, type, ids) {
+  if (!ids.length) return;
+  const res = await safe(() => client.rpc('get_reactions', { p_type: type, p_ids: ids, p_client: getClientToken() }));
+  if (res.error || !Array.isArray(res.data)) {
+    document.body.classList.add('no-reactions'); // sql/reactions.sql not installed yet: hide the buttons
+    return;
+  }
+  ids.forEach((id) => reactionState.set(`${type}:${id}`, { counts: {}, mine: new Set() }));
+  res.data.forEach((row) => {
+    const st = reactionState.get(`${type}:${row.target_id}`);
+    if (!st) return;
+    st.counts[row.emoji] = Number(row.total) || 0;
+    if (row.mine) st.mine.add(row.emoji);
+  });
+  ids.forEach((id) => refreshReactionBars(type, id));
+}
+
+async function toggleReaction(client, type, id, key) {
+  const lock = `${type}:${id}:${key}`;
+  if (pendingReactions.has(lock) || !REACTIONS.some((r) => r.key === key)) return;
+  pendingReactions.add(lock);
+  const stateKey = `${type}:${id}`;
+  let st = reactionState.get(stateKey);
+  if (!st) { st = { counts: {}, mine: new Set() }; reactionState.set(stateKey, st); }
+  const had = st.mine.has(key);
+  const apply = (on) => {
+    if (on) { st.mine.add(key); st.counts[key] = (st.counts[key] || 0) + 1; }
+    else { st.mine.delete(key); st.counts[key] = Math.max(0, (st.counts[key] || 0) - 1); }
+    refreshReactionBars(type, id);
+  };
+  apply(!had); // optimistic update
+  const res = await safe(() => client.rpc('toggle_reaction', { p_type: type, p_id: String(id), p_emoji: key, p_client: getClientToken() }));
+  if (res.error) { apply(had); toast('Reactions are not available right now.', 'error'); }
+  pendingReactions.delete(lock);
+}
+
+/** Cover for the square card: uploaded image, YouTube thumbnail or first frame of a video file. */
+function coverHtml(imageUrl, videoUrl, title) {
+  const image = safeUrl(imageUrl);
+  const video = safeUrl(videoUrl);
+  const yt = youtubeId(video);
+  if (image) return `<img class="card-cover" src="${esc(image)}" alt="${esc(title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+  if (yt) return `<img class="card-cover" src="https://i.ytimg.com/vi/${esc(yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+  if (video && VIDEO_FILE_RE.test(video)) return `<video class="card-cover" src="${esc(video)}#t=0.1" muted playsinline preload="metadata"></video>`;
+  return '';
+}
+
+function storyCardHtml(p) {
+  const text = String(p.body || '');
+  const cover = coverHtml(p.image_url, p.video_url, p.title);
+  const hasVideo = !!safeUrl(p.video_url);
+  const hasAudio = !!safeUrl(p.audio_url);
+  const more = text.length > CARD_TEXT_LIMIT || hasVideo || hasAudio;
+  const badges = [hasVideo && '▶ Video', hasAudio && '\u{1F3A7} Audio'].filter(Boolean)
+    .map((b) => `<span class="tile-badge">${esc(b)}</span>`).join('');
+  return `<article class="tile tile--story${cover ? ' has-cover' : ''}">
+    ${cover}
+    ${badges ? `<div class="tile-badges">${badges}</div>` : ''}
+    <div class="tile-body">
+      <div class="tile-meta">${esc(formatDate(p.created_at))}</div>
+      <h3>${esc(p.title)}</h3>
+      <p>${esc(excerptOf(text, CARD_TEXT_LIMIT))}</p>
+      ${more ? `<button class="tile-more" type="button" data-open="post" data-id="${esc(p.id)}">Read more</button>` : ''}
+      ${reactionsWrap('post', p.id)}
+    </div>
+  </article>`;
+}
+
+function announceCardHtml(a) {
+  const cat = announceCategory(a.category);
+  const text = String(a.body || '');
+  const more = text.length > CARD_TEXT_LIMIT;
+  return `<article class="tile tile--announce announce--${cat}">
+    <div class="tile-body">
+      <div class="announce-head">
+        <span class="badge cat-${cat}">${esc(ANNOUNCE_LABELS[cat])}</span>
+        <span class="tile-meta">${a.pinned ? 'Pinned &middot; ' : ''}${esc(formatDate(a.created_at))}</span>
+      </div>
+      <h3>${esc(a.title)}</h3>
+      <p>${esc(excerptOf(text, CARD_TEXT_LIMIT))}</p>
+      ${more ? `<button class="tile-more" type="button" data-open="announcement" data-id="${esc(a.id)}">Read more</button>` : ''}
+      ${reactionsWrap('announcement', a.id)}
+    </div>
+  </article>`;
+}
+
+function openDetail(type, id) {
+  const item = publicItems[type] && publicItems[type].get(String(id));
+  const dlg = $('detail-dialog');
+  if (!item || !dlg) return;
+  let inner;
+  if (type === 'post') {
+    inner = `${mediaHtml(item.image_url, item.video_url, item.title, item.audio_url)}
+      <div class="detail-body">
+        <div class="tile-meta">${esc(formatDate(item.created_at))}</div>
+        <h3 id="detail-title">${esc(item.title)}</h3>
+        <p>${multiline(item.body)}</p>
+        ${reactionsWrap('post', item.id)}
+      </div>`;
+  } else {
+    const cat = announceCategory(item.category);
+    inner = `<div class="detail-body">
+        <div class="announce-head">
+          <span class="badge cat-${cat}">${esc(ANNOUNCE_LABELS[cat])}</span>
+          <span class="tile-meta">${item.pinned ? 'Pinned &middot; ' : ''}${esc(formatDate(item.created_at))}</span>
+        </div>
+        <h3 id="detail-title">${esc(item.title)}</h3>
+        <p>${multiline(item.body)}</p>
+        ${reactionsWrap('announcement', item.id)}
+      </div>`;
+  }
+  $('detail-content').innerHTML = inner;
+  if (typeof dlg.showModal === 'function') { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute('open', '');
+}
+
+function closeDetail() {
+  const dlg = $('detail-dialog');
+  if (!dlg) return;
+  if (typeof dlg.close === 'function') dlg.close(); else dlg.removeAttribute('open');
+  $('detail-content').innerHTML = ''; // also stops any playing video or audio
+}
+
+function initPublicCards(client) {
+  const dlg = $('detail-dialog');
+  if (dlg) {
+    dlg.addEventListener('click', (ev) => { if (ev.target === dlg) closeDetail(); });
+    dlg.addEventListener('close', () => { $('detail-content').innerHTML = ''; });
+  }
+  document.addEventListener('click', (ev) => {
+    const open = ev.target.closest('button[data-open]');
+    if (open) { openDetail(open.getAttribute('data-open'), open.getAttribute('data-id')); return; }
+    if (ev.target.closest('#detail-close')) { closeDetail(); return; }
+    const btn = ev.target.closest('.react-btn');
+    if (!btn) return;
+    const bar = btn.closest('.reactions');
+    if (bar) toggleReaction(client, bar.getAttribute('data-rtype'), bar.getAttribute('data-rid'), btn.getAttribute('data-react'));
+  });
+}
+
 async function loadStoryStream(client) {
   const box = $('story-stream');
   if (!box) return;
@@ -383,23 +582,10 @@ async function loadStoryStream(client) {
     box.innerHTML = '<div class="empty-state">No stories yet. Check back soon.</div>';
     return;
   }
-  box.innerHTML = res.data.map((p) => {
-    const excerpt = String(p.body || '').length > 320 ? `${String(p.body).slice(0, 320)}...` : p.body;
-    return `<article class="card story">
-      ${mediaHtml(p.image_url, p.video_url, p.title, p.audio_url)}
-      <div class="story-body">
-        <div class="card-meta">${esc(formatDate(p.created_at))}</div>
-        <h3>${esc(p.title)}</h3>
-        <p>${multiline(excerpt)}</p>
-      </div>
-    </article>`;
-  }).join('');
-}
-
-const ANNOUNCE_LABELS = { general: 'Announcement', event: 'Event', deadline: 'Deadline', urgent: 'Urgent' };
-
-function announceCategory(value) {
-  return Object.prototype.hasOwnProperty.call(ANNOUNCE_LABELS, value) ? value : 'general';
+  publicItems.post.clear();
+  res.data.forEach((p) => publicItems.post.set(String(p.id), p));
+  box.innerHTML = res.data.map(storyCardHtml).join('');
+  await loadReactions(client, 'post', res.data.map((p) => String(p.id)));
 }
 
 async function loadPublicAnnouncements(client) {
@@ -408,7 +594,7 @@ async function loadPublicAnnouncements(client) {
   const res = await safe(() => client.from('announcements')
     .select('id,title,body,category,pinned,created_at')
     .eq('published', true)
-    .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(6));
+    .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(9));
   if (res.error || !Array.isArray(res.data)) {
     box.innerHTML = '<div class="empty-state">Announcements are unavailable right now.</div>';
     return;
@@ -417,19 +603,10 @@ async function loadPublicAnnouncements(client) {
     box.innerHTML = '<div class="empty-state">No announcements at the moment. Check back soon.</div>';
     return;
   }
-  box.innerHTML = res.data.map((a) => {
-    const cat = announceCategory(a.category);
-    const text = String(a.body || '');
-    const excerpt = text.length > 600 ? `${text.slice(0, 600)}...` : text;
-    return `<article class="card announce announce--${cat}">
-      <div class="announce-head">
-        <span class="badge cat-${cat}">${esc(ANNOUNCE_LABELS[cat])}</span>
-        <span class="card-meta">${a.pinned ? 'Pinned &middot; ' : ''}${esc(formatDate(a.created_at))}</span>
-      </div>
-      <h3>${esc(a.title)}</h3>
-      <p class="mb-0">${multiline(excerpt)}</p>
-    </article>`;
-  }).join('');
+  publicItems.announcement.clear();
+  res.data.forEach((a) => publicItems.announcement.set(String(a.id), a));
+  box.innerHTML = res.data.map(announceCardHtml).join('');
+  await loadReactions(client, 'announcement', res.data.map((a) => String(a.id)));
 }
 
 function initIdeaForm() {
@@ -685,6 +862,7 @@ async function bootHome() {
     if (notes) notes.innerHTML = '<div class="empty-state">Announcements will appear here once the site is connected.</div>';
     return;
   }
+  initPublicCards(client);
   await Promise.all([loadPublicSettings(client), loadPublicStats(client), loadStoryStream(client), loadPublicAnnouncements(client)]);
   await restoreMemberSession(client);
 }
@@ -1196,6 +1374,7 @@ const DATASETS = [
   { key: 'ideas', label: 'Ideas received', note: 'Everything from the community ideas box.', cols: ['id', 'name', 'email', 'message', 'status', 'created_at'], order: 'created_at' },
   { key: 'posts', label: 'Stories', note: 'Published stories and drafts.', cols: ['id', 'title', 'body', 'image_url', 'video_url', 'audio_url', 'published', 'created_at'], order: 'created_at' },
   { key: 'announcements', label: 'Announcements', note: 'News, events and deadlines posted on the home page.', cols: ['id', 'title', 'body', 'category', 'pinned', 'published', 'created_at'], order: 'created_at' },
+  { key: 'reactions', label: 'Reactions', note: 'Likes and other reactions on stories and announcements.', cols: ['id', 'target_type', 'target_id', 'emoji', 'created_at'], order: 'created_at' },
   { key: 'messages', label: 'Messages sent', note: 'Admin messages to users.', cols: ['id', 'subject', 'body', 'audience', 'created_at'], order: 'created_at' },
   { key: 'message_recipients', label: 'Message delivery log', note: 'Who received which message and when it was read.', cols: ['id', 'message_id', 'volunteer_id', 'read_at', 'created_at'], order: 'created_at' },
   { key: 'site_settings', label: 'Site content settings', note: 'Hero, mission, contact and footer texts.', cols: ['key', 'value', 'updated_at'], order: 'key', asc: true },
