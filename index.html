@@ -72,7 +72,7 @@
           <h2 id="announce-title">Announcements</h2>
           <p>Latest news, events and deadlines from the coordination team.</p>
         </div>
-        <div class="grid grid--3" id="announce-list" aria-live="polite">
+        <div class="card-grid" id="announce-list" aria-live="polite">
           <div class="empty-state">Loading announcements&hellip;</div>
         </div>
       </div>
@@ -148,7 +148,7 @@
           <h2 id="stories-title">Volunteer stories</h2>
           <p>Real moments from projects across our network.</p>
         </div>
-        <div class="grid grid--3" id="story-stream" aria-live="polite">
+        <div class="card-grid" id="story-stream" aria-live="polite">
           <div class="empty-state">Loading stories&hellip;</div>
         </div>
       </div>
@@ -235,7 +235,7 @@
       <div class="footer-col">
         <h4>Contact us</h4>
         <ul class="footer-list">
-          <li><span class="label">E-mail</span><a id="footer-email" href="mailto:gishariyouthvolunteer@gmail.com">gishariyouthvolunteer@gmail.com</a></li>
+          <li><span class="label">E-mail</span><a id="footer-email" href="mailto:soulaimanmwamini0@gmail.com">soulaimanmwamini0@gmail.com</a></li>
           <li id="footer-phone-row" hidden><span class="label">Telephone</span><a id="footer-phone" href="#contact"></a></li>
           <li id="footer-address-row" hidden><span class="label">Address</span><span id="footer-address"></span></li>
         </ul>
@@ -256,6 +256,14 @@
       <p class="copyright">Copyright &copy; 2025 YVs. All rights reserved.</p>
     </div>
   </footer>
+
+  <!-- Read-more pop-up for stories and announcements (filled by app.js) -->
+  <dialog id="detail-dialog" class="detail" aria-labelledby="detail-title">
+    <div class="detail-inner">
+      <button class="btn btn--primary btn--sm detail-close" type="button" id="detail-close" aria-label="Close">Close</button>
+      <div id="detail-content"></div>
+    </div>
+  </dialog>
 
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   <script type="module" src="app.js"></script>
