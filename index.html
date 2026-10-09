@@ -1,26 +1,22 @@
 <!DOCTYPE html>
 <!--
-  index.html | Youth Volunteer Digital Platform | Public portal
-  -----------------------------------------------------------------------------
-  Sections: navigation, hero, live telemetry, community ideas box, story stream,
-  and the "Join Us" panel. The Join Us panel contains a LOGIN FORM ONLY. There is
-  intentionally no registration form: every volunteer is provisioned by an
-  administrator first (see admin.html and schema.sql).
-  All behaviour lives in app.js, loaded as an ES module.
+  index.html | RP-GISHARI COLLEGE Youth Volunteer | Public portal
+  Sections: navigation, hero, how it works, live impact, ideas box, stories, Join Us.
+  ALL account actions (sign in, request to join, member inbox) live only in the
+  "Join Us" section. Behaviour lives in app.js (ES module).
 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Youth Volunteer Platform</title>
-  <meta name="description" content="A youth-led volunteer network: live impact numbers, community ideas and volunteer stories.">
-  <meta name="theme-color" content="#2d6aa8">
+  <title>RP-GISHARI COLLEGE Youth Volunteer</title>
+  <meta name="description" content="RP-GISHARI COLLEGE Youth Volunteer: a youth-led volunteer network with live impact numbers, community ideas and volunteer stories.">
+  <meta name="theme-color" content="#1457b8">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body data-page="home">
   <a class="skip-link" href="#main">Skip to main content</a>
 
-  <!-- Shown by app.js only when the Supabase credentials have not been filled in. -->
   <div id="config-banner" class="config-banner" role="alert" hidden>
     <div class="container">
       Backend not configured yet. Open <code>app.js</code> and set <code>SUPABASE_URL</code>
@@ -31,9 +27,9 @@
   <!-- ============================== NAVIGATION ============================== -->
   <header class="site-header">
     <div class="container nav">
-      <a class="brand" href="#home" aria-label="Youth Volunteer Platform home">
-        <span class="brand-mark" aria-hidden="true">YV</span>
-        <span>Youth Volunteers</span>
+      <a class="brand" href="#home" aria-label="RP-GISHARI COLLEGE Youth Volunteer home">
+        <span class="brand-mark" aria-hidden="true">RP</span>
+        <span class="brand-text"><span>RP-GISHARI COLLEGE</span><small>Youth Volunteer</small></span>
       </a>
       <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
       <nav aria-label="Primary">
@@ -55,10 +51,30 @@
       <div class="container">
         <span class="eyebrow">Youth-led &middot; Community-powered</span>
         <h1 id="hero-title">Young people changing communities</h1>
-        <p id="hero-subtitle">Join a youth-led volunteer network turning small acts into lasting impact.</p>
+        <p id="hero-subtitle">Join RP-GISHARI COLLEGE Youth Volunteer, a youth-led network turning small acts into lasting impact.</p>
         <div class="flex flex--wrap mt-5">
-          <a class="btn btn--primary" href="#join">Volunteer login</a>
+          <a class="btn btn--primary" href="#join">Join Us</a>
           <a class="btn btn--ghost" style="color:#fff;border-color:#fff" href="#ideas">Share an idea</a>
+        </div>
+        <div class="hero-meta" aria-label="Highlights">
+          <span>Student-led projects</span>
+          <span>Training and mentoring</span>
+          <span>Real community impact</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== HOW IT WORKS =========================== -->
+    <section class="section" aria-labelledby="how-title">
+      <div class="container steps-wrap">
+        <div class="section-head">
+          <h2 id="how-title">How it works</h2>
+          <p>Three simple steps from curious student to active volunteer.</p>
+        </div>
+        <div class="grid grid--3 steps">
+          <div class="card card--navy step-card"><h3>Request to join</h3><p class="mb-0 text-muted">Send your details from the Join Us section. The coordination team reviews every request.</p></div>
+          <div class="card card--accent step-card"><h3>Get approved</h3><p class="mb-0 text-muted">An administrator activates your volunteer profile so you can sign in.</p></div>
+          <div class="card card--navy step-card"><h3>Make an impact</h3><p class="mb-0 text-muted">Take part in projects, receive team messages and share your story with the network.</p></div>
         </div>
       </div>
     </section>
@@ -71,22 +87,10 @@
           <p id="mission-text">We connect young volunteers with meaningful projects, train them, and celebrate what they achieve together.</p>
         </div>
         <div class="grid grid--4" id="stats-grid">
-          <div class="card card--navy stat">
-            <div class="stat-value" id="stat-active" data-count="0">0</div>
-            <div class="stat-label">Active volunteers</div>
-          </div>
-          <div class="card card--navy stat">
-            <div class="stat-value" id="stat-total" data-count="0">0</div>
-            <div class="stat-label">Registered members</div>
-          </div>
-          <div class="card card--accent stat stat--accent">
-            <div class="stat-value" id="stat-posts" data-count="0">0</div>
-            <div class="stat-label">Stories published</div>
-          </div>
-          <div class="card card--accent stat stat--accent">
-            <div class="stat-value" id="stat-ideas" data-count="0">0</div>
-            <div class="stat-label">Ideas received</div>
-          </div>
+          <div class="card card--navy stat"><div class="stat-value" id="stat-active">0</div><div class="stat-label">Active volunteers</div></div>
+          <div class="card card--navy stat"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Registered members</div></div>
+          <div class="card card--accent stat stat--accent"><div class="stat-value" id="stat-posts">0</div><div class="stat-label">Stories published</div></div>
+          <div class="card card--accent stat stat--accent"><div class="stat-value" id="stat-ideas">0</div><div class="stat-label">Ideas received</div></div>
         </div>
       </div>
     </section>
@@ -113,7 +117,6 @@
             <textarea id="idea-message" name="message" minlength="5" maxlength="2000" required></textarea>
             <span class="hint"><span id="idea-count">0</span> / 2000 characters</span>
           </div>
-          <!-- Honeypot: real users never see or fill this; bots often do. -->
           <div class="honeypot" aria-hidden="true">
             <label for="idea-website">Website</label>
             <input id="idea-website" name="website" type="text" tabindex="-1" autocomplete="off">
@@ -138,34 +141,74 @@
     </section>
 
     <!-- ================================ JOIN US ============================== -->
-    <!-- LOGIN ONLY. No sign-up fields exist anywhere on this page by design. -->
+    <!-- Sign in, request to join and the member inbox ALL live here. -->
     <section class="section" id="join" aria-labelledby="join-title">
       <div class="container">
         <div class="section-head text-center" style="margin-inline:auto">
           <h2 id="join-title">Join Us</h2>
-          <p>Volunteer access is by invitation. If you have been approved by an administrator, sign in below. Not approved yet? Contact us at <span id="contact-email">hello@example.org</span> and the team will set you up.</p>
+          <p>Already approved? Sign in. New here? Send a join request and an administrator will activate your profile. Questions? Write to <span id="contact-email">hello@example.org</span>.</p>
         </div>
 
-        <form class="card card--navy form login-card" id="login-form" novalidate>
-          <div class="field">
-            <label for="login-email">E-mail</label>
-            <input id="login-email" name="email" type="email" autocomplete="username" required maxlength="254">
+        <div id="auth-area">
+          <div class="tabs" role="tablist" aria-label="Account">
+            <button class="tab" role="tab" id="tab-login" type="button" aria-selected="true" aria-controls="login-form">Sign in</button>
+            <button class="tab" role="tab" id="tab-register" type="button" aria-selected="false" aria-controls="register-form">Request to join</button>
           </div>
-          <div class="field">
-            <label for="login-password">Password</label>
-            <input id="login-password" name="password" type="password" autocomplete="current-password" required minlength="6" maxlength="128">
-          </div>
-          <div id="login-msg" role="alert" aria-live="assertive"></div>
-          <button class="btn btn--navy btn--block" type="submit" id="login-submit">Sign in</button>
-        </form>
 
-        <!-- Shown instead of the form once a volunteer is signed in. -->
+          <form class="card card--navy form login-card" id="login-form" novalidate aria-labelledby="tab-login">
+            <div class="field">
+              <label for="login-email">E-mail</label>
+              <input id="login-email" name="email" type="email" autocomplete="username" required maxlength="254">
+            </div>
+            <div class="field">
+              <label for="login-password">Password</label>
+              <input id="login-password" name="password" type="password" autocomplete="current-password" required minlength="6" maxlength="128">
+            </div>
+            <div id="login-msg" role="alert" aria-live="assertive"></div>
+            <button class="btn btn--navy btn--block" type="submit" id="login-submit">Sign in</button>
+          </form>
+
+          <form class="card card--accent form login-card" id="register-form" novalidate hidden aria-labelledby="tab-register">
+            <div class="field">
+              <label for="reg-name">Full name</label>
+              <input id="reg-name" type="text" autocomplete="name" required maxlength="120">
+            </div>
+            <div class="field">
+              <label for="reg-email">E-mail</label>
+              <input id="reg-email" type="email" autocomplete="email" required maxlength="254">
+            </div>
+            <div class="field">
+              <label for="reg-phone">Phone (optional)</label>
+              <input id="reg-phone" type="tel" autocomplete="tel" maxlength="40">
+            </div>
+            <div class="field">
+              <label for="reg-password">Choose a password</label>
+              <input id="reg-password" type="password" autocomplete="new-password" required minlength="6" maxlength="128">
+              <span class="hint">At least 6 characters. You can sign in with it once your request is approved.</span>
+            </div>
+            <div class="field">
+              <label for="reg-message">Why do you want to volunteer? (optional)</label>
+              <textarea id="reg-message" maxlength="1000" style="min-height:90px"></textarea>
+            </div>
+            <div class="honeypot" aria-hidden="true">
+              <label for="reg-website">Website</label>
+              <input id="reg-website" type="text" tabindex="-1" autocomplete="off">
+            </div>
+            <div id="register-msg" role="status" aria-live="polite"></div>
+            <button class="btn btn--primary btn--block" type="submit" id="register-submit">Send join request</button>
+          </form>
+        </div>
+
         <div class="card card--navy member-panel" id="member-panel" hidden>
           <h3>Welcome back, <span id="member-name">volunteer</span></h3>
           <p class="text-muted">You are signed in and your account is active.</p>
           <div class="flex flex--wrap" style="justify-content:center">
             <a class="btn btn--primary" id="member-admin-link" href="admin.html" hidden>Open admin console</a>
             <button class="btn btn--ghost" type="button" id="logout-btn">Sign out</button>
+          </div>
+          <div class="inbox" id="inbox" hidden>
+            <h4>Messages from the team <span id="inbox-unread" class="badge status-new" hidden></span></h4>
+            <div id="inbox-list"></div>
           </div>
         </div>
       </div>
@@ -174,7 +217,10 @@
 
   <footer class="site-footer">
     <div class="container flex flex--wrap flex--between">
-      <span id="footer-text">Youth Volunteer Digital Platform. Built by young people, for young people.</span>
+      <div class="footer-stack">
+        <span id="footer-text">RP-GISHARI COLLEGE Youth Volunteer. Built by young people, for young people.</span>
+        <span class="credit">Website developed by <strong>MWAAMINI Soulaiman</strong></span>
+      </div>
       <a href="#home">Back to top</a>
     </div>
   </footer>
