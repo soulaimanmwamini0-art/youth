@@ -41,7 +41,10 @@ const CONFIG = Object.freeze({
 
   LOGIN_PAGE: 'index.html#join',
   ADMIN_PAGE: 'admin.html',
-  SETTING_KEYS: ['hero_title', 'hero_subtitle', 'mission', 'contact_email', 'footer_text'],
+  SETTING_KEYS: ['hero_title', 'hero_subtitle', 'mission', 'contact_email', 'contact_phone', 'contact_address', 'footer_text'],
+
+  // Supabase Storage bucket for story images, videos and audio (created by sql/announcements_and_media.sql).
+  STORAGE_BUCKET: 'story-media',
   PAGE_SIZE: 25,
 });
 
@@ -50,6 +53,9 @@ const state = {
   profile: null,
   volunteers: [],
   posts: [],
+  announcements: [],
+  media: { image: '', video: '', audio: '' },
+  mediaOriginal: { image: '', video: '', audio: '' },
   ideas: [],
   requests: [],
   messages: [],
@@ -119,21 +125,26 @@ function multiline(v) {
   return esc(v).replace(/\r?\n/g, '<br>');
 }
 
-/** Builds the media block (image and/or video) for a story, fully sanitized. */
-function mediaHtml(imageUrl, videoUrl, title) {
+const VIDEO_FILE_RE = /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i;
+
+/** Builds the media block (video or image, plus optional audio player) for a story, fully sanitized. */
+function mediaHtml(imageUrl, videoUrl, title, audioUrl) {
   const video = safeUrl(videoUrl);
   const image = safeUrl(imageUrl);
+  const audio = safeUrl(audioUrl);
   const yt = youtubeId(video);
+  let html = '';
   if (yt) {
-    return `<iframe class="story-media" src="https://www.youtube-nocookie.com/embed/${esc(yt)}" title="${esc(title)} (video)" loading="lazy" allow="encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+    html = `<iframe class="story-media" src="https://www.youtube-nocookie.com/embed/${esc(yt)}" title="${esc(title)} (video)" loading="lazy" allow="encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  } else if (video && VIDEO_FILE_RE.test(video)) {
+    html = `<video class="story-media" src="${esc(video)}" controls preload="metadata"${image ? ` poster="${esc(image)}"` : ''}></video>`;
+  } else if (image) {
+    html = `<img class="story-media" src="${esc(image)}" alt="${esc(title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
   }
-  if (video && /\.(mp4|webm|ogg)(\?.*)?$/i.test(video)) {
-    return `<video class="story-media" src="${esc(video)}" controls preload="metadata"${image ? ` poster="${esc(image)}"` : ''}></video>`;
+  if (audio) {
+    html += `<div class="story-audio-wrap"><audio class="story-audio" src="${esc(audio)}" controls preload="none"></audio></div>`;
   }
-  if (image) {
-    return `<img class="story-media" src="${esc(image)}" alt="${esc(title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
-  }
-  return '';
+  return html;
 }
 
 /** Short pop-up message. kind: info | success | error. */
@@ -309,6 +320,29 @@ async function signOutAndGo(client, target) {
 
 /* 5. PUBLIC PORTAL ---------------------------------------------------------- */
 
+/** Fills the footer contact block. Phone and address rows stay hidden until set in the admin console. */
+function applyContact(map) {
+  const email = String(map.contact_email || '').trim();
+  if (email && isValidEmail(email) && !/@example\.org$/i.test(email)) {
+    const link = $('footer-email');
+    if (link) { link.textContent = email; link.href = `mailto:${email}`; }
+  }
+  const phone = String(map.contact_phone || '').trim();
+  const phoneLink = $('footer-phone');
+  const phoneRow = $('footer-phone-row');
+  if (phone && phoneLink && phoneRow) {
+    phoneLink.textContent = phone;
+    phoneLink.href = `tel:${phone.replace(/[^+\d]/g, '')}`;
+    phoneRow.hidden = false;
+  }
+  const address = String(map.contact_address || '').trim();
+  const addrRow = $('footer-address-row');
+  if (address && addrRow) {
+    setText('footer-address', address);
+    addrRow.hidden = false;
+  }
+}
+
 async function loadPublicSettings(client) {
   const res = await safe(() => client.from('site_settings').select('key,value').in('key', CONFIG.SETTING_KEYS));
   if (res.error || !Array.isArray(res.data)) return;
@@ -317,7 +351,7 @@ async function loadPublicSettings(client) {
   setText('hero-title', map.hero_title);
   setText('hero-subtitle', map.hero_subtitle);
   setText('mission-text', map.mission);
-  setText('contact-email', map.contact_email);
+  applyContact(map);
   setText('footer-text', map.footer_text);
 }
 
@@ -337,9 +371,10 @@ async function loadPublicStats(client) {
 async function loadStoryStream(client) {
   const box = $('story-stream');
   if (!box) return;
-  const res = await safe(() => client.from('posts')
-    .select('id,title,body,image_url,video_url,created_at')
+  const query = (cols) => safe(() => client.from('posts').select(cols)
     .eq('published', true).order('created_at', { ascending: false }).limit(12));
+  let res = await query('id,title,body,image_url,video_url,audio_url,created_at');
+  if (res.error) res = await query('id,title,body,image_url,video_url,created_at'); // audio column not installed yet
   if (res.error || !Array.isArray(res.data)) {
     box.innerHTML = '<div class="empty-state">Stories are unavailable right now.</div>';
     return;
@@ -351,12 +386,48 @@ async function loadStoryStream(client) {
   box.innerHTML = res.data.map((p) => {
     const excerpt = String(p.body || '').length > 320 ? `${String(p.body).slice(0, 320)}...` : p.body;
     return `<article class="card story">
-      ${mediaHtml(p.image_url, p.video_url, p.title)}
+      ${mediaHtml(p.image_url, p.video_url, p.title, p.audio_url)}
       <div class="story-body">
         <div class="card-meta">${esc(formatDate(p.created_at))}</div>
         <h3>${esc(p.title)}</h3>
         <p>${multiline(excerpt)}</p>
       </div>
+    </article>`;
+  }).join('');
+}
+
+const ANNOUNCE_LABELS = { general: 'Announcement', event: 'Event', deadline: 'Deadline', urgent: 'Urgent' };
+
+function announceCategory(value) {
+  return Object.prototype.hasOwnProperty.call(ANNOUNCE_LABELS, value) ? value : 'general';
+}
+
+async function loadPublicAnnouncements(client) {
+  const box = $('announce-list');
+  if (!box) return;
+  const res = await safe(() => client.from('announcements')
+    .select('id,title,body,category,pinned,created_at')
+    .eq('published', true)
+    .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(6));
+  if (res.error || !Array.isArray(res.data)) {
+    box.innerHTML = '<div class="empty-state">Announcements are unavailable right now.</div>';
+    return;
+  }
+  if (res.data.length === 0) {
+    box.innerHTML = '<div class="empty-state">No announcements at the moment. Check back soon.</div>';
+    return;
+  }
+  box.innerHTML = res.data.map((a) => {
+    const cat = announceCategory(a.category);
+    const text = String(a.body || '');
+    const excerpt = text.length > 600 ? `${text.slice(0, 600)}...` : text;
+    return `<article class="card announce announce--${cat}">
+      <div class="announce-head">
+        <span class="badge cat-${cat}">${esc(ANNOUNCE_LABELS[cat])}</span>
+        <span class="card-meta">${a.pinned ? 'Pinned &middot; ' : ''}${esc(formatDate(a.created_at))}</span>
+      </div>
+      <h3>${esc(a.title)}</h3>
+      <p class="mb-0">${multiline(excerpt)}</p>
     </article>`;
   }).join('');
 }
@@ -610,9 +681,11 @@ async function bootHome() {
   if (!client) {
     const stories = $('story-stream');
     if (stories) stories.innerHTML = '<div class="empty-state">Stories will appear here once the site is connected.</div>';
+    const notes = $('announce-list');
+    if (notes) notes.innerHTML = '<div class="empty-state">Announcements will appear here once the site is connected.</div>';
     return;
   }
-  await Promise.all([loadPublicSettings(client), loadPublicStats(client), loadStoryStream(client)]);
+  await Promise.all([loadPublicSettings(client), loadPublicStats(client), loadStoryStream(client), loadPublicAnnouncements(client)]);
   await restoreMemberSession(client);
 }
 
@@ -1121,7 +1194,8 @@ const DATASETS = [
   { key: 'volunteers', label: 'Registered users', note: 'Every volunteer and admin profile.', cols: VOLUNTEER_COLUMNS, order: 'created_at' },
   { key: 'join_requests', label: 'Join requests', note: 'Requests sent from Join Us.', cols: ['id', 'full_name', 'email', 'phone', 'message', 'status', 'created_at'], order: 'created_at' },
   { key: 'ideas', label: 'Ideas received', note: 'Everything from the community ideas box.', cols: ['id', 'name', 'email', 'message', 'status', 'created_at'], order: 'created_at' },
-  { key: 'posts', label: 'Stories', note: 'Published stories and drafts.', cols: ['id', 'title', 'body', 'image_url', 'video_url', 'published', 'created_at'], order: 'created_at' },
+  { key: 'posts', label: 'Stories', note: 'Published stories and drafts.', cols: ['id', 'title', 'body', 'image_url', 'video_url', 'audio_url', 'published', 'created_at'], order: 'created_at' },
+  { key: 'announcements', label: 'Announcements', note: 'News, events and deadlines posted on the home page.', cols: ['id', 'title', 'body', 'category', 'pinned', 'published', 'created_at'], order: 'created_at' },
   { key: 'messages', label: 'Messages sent', note: 'Admin messages to users.', cols: ['id', 'subject', 'body', 'audience', 'created_at'], order: 'created_at' },
   { key: 'message_recipients', label: 'Message delivery log', note: 'Who received which message and when it was read.', cols: ['id', 'message_id', 'volunteer_id', 'read_at', 'created_at'], order: 'created_at' },
   { key: 'site_settings', label: 'Site content settings', note: 'Hero, mission, contact and footer texts.', cols: ['key', 'value', 'updated_at'], order: 'key', asc: true },
@@ -1256,25 +1330,117 @@ function initSettingsForm(client) {
   });
 }
 
-/* ---- 6.7 Multimedia story editor ---- */
+/* ---- 6.7 Multimedia story editor (files are uploaded to Supabase Storage) ---- */
+
+const MEDIA_KINDS = {
+  image: {
+    input: 'post-image-file', slot: 'media-slot-image', maxBytes: 10 * 1024 * 1024,
+    types: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+  },
+  video: {
+    input: 'post-video-file', slot: 'media-slot-video', maxBytes: 50 * 1024 * 1024,
+    types: ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'],
+  },
+  audio: {
+    input: 'post-audio-file', slot: 'media-slot-audio', maxBytes: 20 * 1024 * 1024,
+    types: ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav', 'audio/x-wav', 'audio/webm', 'audio/mp4', 'audio/x-m4a', 'audio/aac'],
+  },
+};
+
+function formatBytes(n) {
+  return n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`;
+}
+
+function pickedFile(kind) {
+  const input = $(MEDIA_KINDS[kind].input);
+  return input && input.files && input.files[0] ? input.files[0] : null;
+}
+
+/** Returns an error message, or '' when the file is acceptable. */
+function validateMedia(kind, file) {
+  const spec = MEDIA_KINDS[kind];
+  if (!spec.types.includes(String(file.type || '').toLowerCase())) {
+    return `That ${kind} file type is not supported${file.type ? ` (${file.type})` : ''}.`;
+  }
+  if (file.size > spec.maxBytes) {
+    return `The ${kind} file is too large (${formatBytes(file.size)}). The maximum is ${formatBytes(spec.maxBytes)}.`;
+  }
+  return '';
+}
+
+/** Public URL of a file in our bucket -> its storage path, or '' for external URLs. */
+function storagePathFromUrl(url) {
+  const marker = `/storage/v1/object/public/${CONFIG.STORAGE_BUCKET}/`;
+  const text = String(url || '');
+  const idx = text.indexOf(marker);
+  if (idx < 0) return '';
+  try { return decodeURIComponent(text.slice(idx + marker.length).split('?')[0]); } catch (_e) { return ''; }
+}
+
+async function removeStoredFiles(client, urls) {
+  const paths = urls.map(storagePathFromUrl).filter(Boolean);
+  if (paths.length === 0) return;
+  await safe(() => client.storage.from(CONFIG.STORAGE_BUCKET).remove(paths));
+}
+
+async function uploadMedia(client, kind, file) {
+  const ext = (String(file.name || '').split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin';
+  const path = `${kind}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+  const bucket = client.storage.from(CONFIG.STORAGE_BUCKET);
+  const up = await safe(() => bucket.upload(path, file, { contentType: file.type, cacheControl: '31536000', upsert: false }));
+  if (up.error) return { url: '', error: up.error };
+  const pub = bucket.getPublicUrl(path);
+  const url = pub && pub.data && pub.data.publicUrl ? pub.data.publicUrl : '';
+  return url ? { url, error: null } : { url: '', error: new Error('no public url') };
+}
+
+/** Shows, per media kind, the newly chosen file or the file already attached. */
+function refreshMediaSlots() {
+  Object.keys(MEDIA_KINDS).forEach((kind) => {
+    const slot = $(MEDIA_KINDS[kind].slot);
+    if (!slot) return;
+    const file = pickedFile(kind);
+    const current = state.media[kind];
+    const parts = [];
+    if (file) {
+      parts.push(`<span>Selected: <strong>${esc(file.name)}</strong> (${esc(formatBytes(file.size))}). It uploads when you save.</span>`);
+    } else if (current) {
+      const href = safeUrl(current);
+      parts.push(href
+        ? `<span>Current file: <a href="${esc(href)}" target="_blank" rel="noopener noreferrer">open</a></span>`
+        : '<span>Current file attached.</span>');
+    }
+    if (file || current) {
+      parts.push(`<button class="btn btn--ghost btn--sm" type="button" data-media-remove="${esc(kind)}">Remove</button>`);
+    }
+    slot.innerHTML = parts.join('');
+  });
+}
 
 function renderPostPreview() {
   const title = $('post-title').value.trim();
   const body = $('post-body').value;
-  const media = mediaHtml($('post-image').value, $('post-video').value, title || 'Story');
+  const media = mediaHtml(state.media.image, state.media.video, title || 'Story', state.media.audio);
+  const pending = Object.keys(MEDIA_KINDS).filter((k) => pickedFile(k));
   const box = $('post-preview');
-  if (!title && !body && !media) {
+  if (!title && !body && !media && pending.length === 0) {
     box.innerHTML = '<p class="text-muted mb-0">Start typing to see a preview.</p>';
     return;
   }
-  box.innerHTML = `<article class="story">${media}<div class="story-body"><h3>${esc(title || 'Untitled')}</h3><p>${multiline(body)}</p></div></article>`;
+  const note = pending.length
+    ? `<p class="text-muted card-meta" style="padding:var(--space-3) var(--space-5) 0">New ${esc(pending.join(', '))} file${pending.length === 1 ? '' : 's'} will appear here after you save.</p>`
+    : '';
+  box.innerHTML = `<article class="story">${media}${note}<div class="story-body"><h3>${esc(title || 'Untitled')}</h3><p>${multiline(body)}</p></div></article>`;
 }
 
 function resetPostForm() {
   $('post-form').reset();
   $('post-id').value = '';
+  state.media = { image: '', video: '', audio: '' };
+  state.mediaOriginal = { image: '', video: '', audio: '' };
   $('post-save').textContent = 'Save story';
   setMessage('post-msg', '');
+  refreshMediaSlots();
   renderPostPreview();
 }
 
@@ -1284,17 +1450,20 @@ function renderPostList() {
     box.innerHTML = '<p class="text-muted">No stories yet.</p>';
     return;
   }
-  box.innerHTML = state.posts.map((p) => `<div class="post-item">
+  box.innerHTML = state.posts.map((p) => {
+    const kinds = [p.image_url && 'image', p.video_url && 'video', p.audio_url && 'audio'].filter(Boolean).join(', ');
+    return `<div class="post-item">
     <div>
       <strong>${esc(p.title)}</strong>
-      <small>${esc(formatDate(p.created_at))} &middot; ${p.published ? 'Published' : 'Draft'}</small>
+      <small>${esc(formatDate(p.created_at))} &middot; ${p.published ? 'Published' : 'Draft'}${kinds ? ` &middot; ${esc(kinds)}` : ''}</small>
     </div>
     <div class="row-actions">
       <button class="btn btn--ghost btn--sm" type="button" data-post-action="edit" data-id="${esc(p.id)}">Edit</button>
       <button class="btn btn--ghost btn--sm" type="button" data-post-action="toggle" data-id="${esc(p.id)}">${p.published ? 'Unpublish' : 'Publish'}</button>
       <button class="btn btn--ghost btn--sm" type="button" data-post-action="delete" data-id="${esc(p.id)}">Delete</button>
     </div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 
 async function loadPosts(client) {
@@ -1306,8 +1475,29 @@ async function loadPosts(client) {
 
 function initPostEditor(client) {
   const preview = debounce(renderPostPreview, 120);
-  ['post-title', 'post-body', 'post-image', 'post-video'].forEach((id) => $(id).addEventListener('input', preview));
+  ['post-title', 'post-body'].forEach((id) => $(id).addEventListener('input', preview));
   $('post-reset').addEventListener('click', resetPostForm);
+
+  Object.keys(MEDIA_KINDS).forEach((kind) => {
+    $(MEDIA_KINDS[kind].input).addEventListener('change', (ev) => {
+      const file = pickedFile(kind);
+      const problem = file ? validateMedia(kind, file) : '';
+      if (problem) { ev.target.value = ''; setMessage('post-msg', problem, 'error'); } else { setMessage('post-msg', ''); }
+      refreshMediaSlots();
+      renderPostPreview();
+    });
+  });
+
+  $('post-media').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-media-remove]');
+    if (!btn) return;
+    const kind = btn.getAttribute('data-media-remove');
+    if (!MEDIA_KINDS[kind]) return;
+    if (pickedFile(kind)) $(MEDIA_KINDS[kind].input).value = ''; // cancel the new selection first
+    else state.media[kind] = '';                                  // otherwise detach the saved file
+    refreshMediaSlots();
+    renderPostPreview();
+  });
 
   $('post-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -1315,23 +1505,61 @@ function initPostEditor(client) {
     const id = $('post-id').value;
     const title = $('post-title').value.trim();
     const body = $('post-body').value.trim();
-    const imageRaw = $('post-image').value.trim();
-    const videoRaw = $('post-video').value.trim();
-    const image_url = imageRaw ? safeUrl(imageRaw) : '';
-    const video_url = videoRaw ? safeUrl(videoRaw) : '';
 
     if (title.length < 3 || title.length > 160) { setMessage('post-msg', 'The title must be 3 to 160 characters.', 'error'); return; }
-    if (imageRaw && !image_url) { setMessage('post-msg', 'The image URL must start with http:// or https://.', 'error'); return; }
-    if (videoRaw && !video_url) { setMessage('post-msg', 'The video URL must start with http:// or https://.', 'error'); return; }
+    for (const kind of Object.keys(MEDIA_KINDS)) {
+      const file = pickedFile(kind);
+      const problem = file ? validateMedia(kind, file) : '';
+      if (problem) { setMessage('post-msg', problem, 'error'); return; }
+    }
 
-    const payload = { title, body, image_url, video_url, published: $('post-published').checked };
+    const btn = $('post-save');
+    const label = btn.textContent;
+    btn.disabled = true;
+    const urls = Object.assign({}, state.media);
+    const uploaded = [];
+
+    for (const kind of Object.keys(MEDIA_KINDS)) {
+      const file = pickedFile(kind);
+      if (!file) continue;
+      btn.textContent = `Uploading ${kind}...`;
+      // eslint-disable-next-line no-await-in-loop
+      const up = await uploadMedia(client, kind, file);
+      if (up.error || !up.url) {
+        await removeStoredFiles(client, uploaded);
+        btn.disabled = false;
+        btn.textContent = label;
+        setMessage('post-msg', `Could not upload the ${kind}. Check the file and make sure sql/announcements_and_media.sql has been run.`, 'error');
+        return;
+      }
+      urls[kind] = up.url;
+      uploaded.push(up.url);
+    }
+
+    btn.textContent = 'Saving...';
+    const existing = id ? state.posts.find((p) => String(p.id) === String(id)) : null;
+    const payload = { title, body, image_url: urls.image, video_url: urls.video, published: $('post-published').checked };
+    if (urls.audio || (existing && 'audio_url' in existing)) payload.audio_url = urls.audio;
     if (!id) payload.author_id = state.profile && state.profile.id ? state.profile.id : null;
 
     const res = id
       ? await safe(() => client.from('posts').update(payload).eq('id', id))
       : await safe(() => client.from('posts').insert(payload));
 
-    if (res.error) { setMessage('post-msg', 'Could not save the story.', 'error'); return; }
+    btn.disabled = false;
+    btn.textContent = label;
+    if (res.error) {
+      await removeStoredFiles(client, uploaded);
+      setMessage('post-msg', 'Could not save the story. If you added audio, make sure sql/announcements_and_media.sql has been run.', 'error');
+      return;
+    }
+
+    // Clean up files that were replaced or removed.
+    const stale = Object.keys(MEDIA_KINDS)
+      .map((k) => state.mediaOriginal[k])
+      .filter((u, i) => u && u !== urls[Object.keys(MEDIA_KINDS)[i]]);
+    await removeStoredFiles(client, stale);
+
     toast('Story saved.', 'success');
     resetPostForm();
     await Promise.all([loadPosts(client), loadCounts(client)]);
@@ -1349,10 +1577,13 @@ function initPostEditor(client) {
       $('post-id').value = post.id;
       $('post-title').value = post.title || '';
       $('post-body').value = post.body || '';
-      $('post-image').value = post.image_url || '';
-      $('post-video').value = post.video_url || '';
       $('post-published').checked = !!post.published;
+      Object.keys(MEDIA_KINDS).forEach((k) => { $(MEDIA_KINDS[k].input).value = ''; });
+      state.media = { image: post.image_url || '', video: post.video_url || '', audio: post.audio_url || '' };
+      state.mediaOriginal = Object.assign({}, state.media);
       $('post-save').textContent = 'Update story';
+      setMessage('post-msg', '');
+      refreshMediaSlots();
       renderPostPreview();
       $('post-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
@@ -1365,8 +1596,117 @@ function initPostEditor(client) {
     if (action === 'delete') {
       if (!window.confirm(`Delete "${post.title}" permanently?`)) return;
       const res = await safe(() => client.from('posts').delete().eq('id', id));
-      if (res.error) toast('Could not delete the story.', 'error'); else { toast('Story deleted.', 'success'); await Promise.all([loadPosts(client), loadCounts(client)]); }
+      if (res.error) { toast('Could not delete the story.', 'error'); return; }
+      await removeStoredFiles(client, [post.image_url, post.video_url, post.audio_url]);
+      toast('Story deleted.', 'success');
+      await Promise.all([loadPosts(client), loadCounts(client)]);
     }
+  });
+}
+
+/* ---- 6.7b Announcements manager ---- */
+
+function resetAnnouncementForm() {
+  $('an-form').reset();
+  $('an-id').value = '';
+  $('an-save').textContent = 'Save announcement';
+  setMessage('an-msg', '');
+}
+
+function renderAnnouncementList() {
+  const box = $('an-list');
+  if (state.announcements.length === 0) {
+    box.innerHTML = '<p class="text-muted">No announcements yet.</p>';
+    return;
+  }
+  box.innerHTML = state.announcements.map((a) => {
+    const cat = announceCategory(a.category);
+    return `<div class="post-item">
+    <div>
+      <strong>${esc(a.title)}</strong>
+      <small>${esc(formatDate(a.created_at))} &middot; ${esc(ANNOUNCE_LABELS[cat])}${a.pinned ? ' &middot; Pinned' : ''} &middot; ${a.published ? 'Published' : 'Draft'}</small>
+    </div>
+    <div class="row-actions">
+      <button class="btn btn--ghost btn--sm" type="button" data-an-action="edit" data-id="${esc(a.id)}">Edit</button>
+      <button class="btn btn--ghost btn--sm" type="button" data-an-action="pin" data-id="${esc(a.id)}">${a.pinned ? 'Unpin' : 'Pin'}</button>
+      <button class="btn btn--ghost btn--sm" type="button" data-an-action="toggle" data-id="${esc(a.id)}">${a.published ? 'Unpublish' : 'Publish'}</button>
+      <button class="btn btn--ghost btn--sm" type="button" data-an-action="delete" data-id="${esc(a.id)}">Delete</button>
+    </div>
+  </div>`;
+  }).join('');
+}
+
+async function loadAnnouncementList(client) {
+  const res = await safe(() => client.from('announcements').select('*')
+    .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(200));
+  if (res.error || !Array.isArray(res.data)) {
+    const box = $('an-list');
+    if (box) box.innerHTML = '<p class="text-muted">Announcements are unavailable. Run <code>sql/announcements_and_media.sql</code> in the Supabase SQL Editor once.</p>';
+    return;
+  }
+  state.announcements = res.data;
+  renderAnnouncementList();
+}
+
+function initAnnouncements(client) {
+  $('an-reset').addEventListener('click', resetAnnouncementForm);
+
+  $('an-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    setMessage('an-msg', '');
+    const id = $('an-id').value;
+    const title = $('an-title').value.trim();
+    const body = $('an-body').value.trim();
+    const category = announceCategory($('an-category').value);
+
+    if (title.length < 3 || title.length > 160) { setMessage('an-msg', 'The title must be 3 to 160 characters.', 'error'); return; }
+    if (body.length < 5) { setMessage('an-msg', 'Write the announcement text (at least 5 characters).', 'error'); return; }
+    if (body.length > 3000) { setMessage('an-msg', 'Please keep the announcement under 3000 characters.', 'error'); return; }
+
+    const payload = { title, body, category, pinned: $('an-pinned').checked, published: $('an-published').checked };
+    const btn = $('an-save');
+    btn.disabled = true;
+    const res = id
+      ? await safe(() => client.from('announcements').update(payload).eq('id', id))
+      : await safe(() => client.from('announcements').insert(payload));
+    btn.disabled = false;
+
+    if (res.error) { setMessage('an-msg', 'Could not save the announcement. Run sql/announcements_and_media.sql if you have not yet.', 'error'); return; }
+    toast('Announcement saved.', 'success');
+    resetAnnouncementForm();
+    await loadAnnouncementList(client);
+  });
+
+  $('an-list').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-an-action]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    const item = state.announcements.find((a) => String(a.id) === String(id));
+    if (!item) return;
+    const action = btn.getAttribute('data-an-action');
+
+    if (action === 'edit') {
+      $('an-id').value = item.id;
+      $('an-title').value = item.title || '';
+      $('an-body').value = item.body || '';
+      $('an-category').value = announceCategory(item.category);
+      $('an-pinned').checked = !!item.pinned;
+      $('an-published').checked = !!item.published;
+      $('an-save').textContent = 'Update announcement';
+      setMessage('an-msg', '');
+      $('an-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    let res;
+    if (action === 'pin') res = await safe(() => client.from('announcements').update({ pinned: !item.pinned }).eq('id', id));
+    else if (action === 'toggle') res = await safe(() => client.from('announcements').update({ published: !item.published }).eq('id', id));
+    else if (action === 'delete') {
+      if (!window.confirm(`Delete "${item.title}" permanently?`)) return;
+      res = await safe(() => client.from('announcements').delete().eq('id', id));
+    } else return;
+
+    if (res.error) toast('Could not update the announcement.', 'error');
+    else { toast('Announcement updated.', 'success'); await loadAnnouncementList(client); }
   });
 }
 
@@ -1442,12 +1782,14 @@ async function bootAdmin() {
   initSettingsForm(client);
   initPostEditor(client);
   initIdeasInbox(client);
+  initAnnouncements(client);
+  refreshMediaSlots();
   renderPostPreview();
 
   // Independent reads run in parallel; a failure in one never blocks the others.
   await Promise.all([
     loadVolunteers(client), loadRequests(client), loadMessages(client), loadSettingsForm(client),
-    loadPosts(client), loadIdeas(client), loadCounts(client), renderExportGrid(client),
+    loadPosts(client), loadAnnouncementList(client), loadIdeas(client), loadCounts(client), renderExportGrid(client),
   ]);
 }
 
