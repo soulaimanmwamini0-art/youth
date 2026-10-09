@@ -1,19 +1,17 @@
 <!DOCTYPE html>
 <!--
-  admin.html | Youth Volunteer Digital Platform | Command center
-  -----------------------------------------------------------------------------
+  admin.html | RP-GISHARI COLLEGE Youth Volunteer | Admin console
   Everything inside #admin-app stays hidden until app.js has confirmed, against
   the database, that the signed-in user is an ACTIVE admin. This is a usability
-  guard only: the real enforcement is Row-Level Security in schema.sql, so even
-  a visitor who un-hides this markup can read or change nothing.
+  guard only: the real enforcement is Row-Level Security in your schema.
 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>Admin Console | Youth Volunteer Platform</title>
-  <meta name="theme-color" content="#2d6aa8">
+  <title>Admin Console | RP-GISHARI COLLEGE Youth Volunteer</title>
+  <meta name="theme-color" content="#1457b8">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body data-page="admin">
@@ -30,7 +28,7 @@
       <div class="spinner" id="guard-spinner" aria-hidden="true"></div>
       <h2 id="guard-title">Checking access&hellip;</h2>
       <p class="text-muted" id="guard-text">Verifying your administrator session.</p>
-      <a class="btn btn--navy" id="guard-link" href="index.html#join" hidden>Go to login</a>
+      <a class="btn btn--navy" id="guard-link" href="index.html#join" hidden>Go to Join Us</a>
     </div>
   </div>
 
@@ -39,8 +37,8 @@
     <header class="site-header">
       <div class="container nav">
         <a class="brand" href="admin.html">
-          <span class="brand-mark" aria-hidden="true">YV</span>
-          <span>Admin Console</span>
+          <span class="brand-mark" aria-hidden="true">RP</span>
+          <span class="brand-text"><span>RP-GISHARI COLLEGE</span><small>Admin Console</small></span>
         </a>
         <div class="flex flex--center">
           <span class="badge role-admin" id="admin-user">admin</span>
@@ -55,6 +53,9 @@
       <nav class="admin-tabs" aria-label="Console sections">
         <a class="btn btn--ghost btn--sm" href="#analytics">Analytics</a>
         <a class="btn btn--ghost btn--sm" href="#volunteers">Volunteers</a>
+        <a class="btn btn--ghost btn--sm" href="#requests">Join requests <span id="req-badge" class="badge status-new" hidden>0</span></a>
+        <a class="btn btn--ghost btn--sm" href="#messaging">Messages</a>
+        <a class="btn btn--ghost btn--sm" href="#downloads">Downloads</a>
         <a class="btn btn--ghost btn--sm" href="#content">Site content</a>
         <a class="btn btn--ghost btn--sm" href="#stories-editor">Story editor</a>
         <a class="btn btn--ghost btn--sm" href="#ideas-inbox">Ideas inbox</a>
@@ -68,6 +69,12 @@
           <div class="card kpi"><span class="kpi-value" id="kpi-active">0</span><span class="kpi-label">Active</span></div>
           <div class="card kpi"><span class="kpi-value" id="kpi-pending">0</span><span class="kpi-label">Pending</span></div>
           <div class="card kpi"><span class="kpi-value" id="kpi-suspended">0</span><span class="kpi-label">Suspended</span></div>
+        </div>
+        <div class="grid grid--4 mt-5">
+          <div class="card kpi"><span class="kpi-value" id="kpi-requests">0</span><span class="kpi-label">New join requests</span></div>
+          <div class="card kpi"><span class="kpi-value" id="kpi-ideas">0</span><span class="kpi-label">Ideas received</span></div>
+          <div class="card kpi"><span class="kpi-value" id="kpi-posts">0</span><span class="kpi-label">Stories (all)</span></div>
+          <div class="card kpi"><span class="kpi-value" id="kpi-messages">0</span><span class="kpi-label">Messages sent</span></div>
         </div>
         <div class="grid grid--2 mt-5">
           <div class="card">
@@ -92,16 +99,19 @@
             </div>
           </div>
         </div>
+        <div class="card mt-5">
+          <h3>New accounts, last 6 months</h3>
+          <div class="mini-bars" id="month-bars"></div>
+        </div>
       </section>
 
       <!-- ----------------------------- VOLUNTEERS ---------------------------- -->
       <section id="volunteers" aria-labelledby="vol-title">
         <h2 id="vol-title">Volunteers</h2>
 
-        <!-- Inline utility: pre-provision a volunteer profile. -->
-        <form class="card card--accent form mb-0" id="create-vol-form" novalidate style="margin-bottom:var(--space-5)">
+        <form class="card card--accent form" id="create-vol-form" novalidate style="margin-bottom:var(--space-5)">
           <h3 class="mb-0">Create volunteer profile</h3>
-          <p class="text-muted mb-0">This authorizes an e-mail address. Then create the same e-mail under Supabase &rarr; Authentication &rarr; Users &rarr; Add user; the two are linked automatically on first creation or login.</p>
+          <p class="text-muted mb-0">This authorizes an e-mail address. If the person has not registered themselves, also create the same e-mail under Supabase &rarr; Authentication &rarr; Users &rarr; Add user; the two are linked automatically on first login.</p>
           <div class="grid grid--4">
             <div class="field"><label for="cv-name">Full name</label><input id="cv-name" type="text" maxlength="120" required></div>
             <div class="field"><label for="cv-email">E-mail</label><input id="cv-email" type="email" maxlength="254" required></div>
@@ -146,6 +156,59 @@
             <tbody id="vol-body"><tr><td colspan="7">Loading&hellip;</td></tr></tbody>
           </table>
         </div>
+        <div class="pager" id="vol-pager"></div>
+      </section>
+
+      <!-- --------------------------- JOIN REQUESTS --------------------------- -->
+      <section id="requests" aria-labelledby="req-title">
+        <h2 id="req-title">Join requests</h2>
+        <p class="text-muted">Requests sent from the Join Us section. Approving creates an active volunteer profile; the person can then sign in with the password they chose.</p>
+        <div class="card"><div class="post-list" id="req-list"><p class="text-muted">Loading&hellip;</p></div></div>
+      </section>
+
+      <!-- ------------------------------ MESSAGING ---------------------------- -->
+      <section id="messaging" aria-labelledby="msg-title">
+        <h2 id="msg-title">Messages</h2>
+        <div class="grid grid--2">
+          <form class="card card--accent form" id="msg-form" novalidate>
+            <h3 class="mb-0">Send a message</h3>
+            <div class="radio-row" role="radiogroup" aria-label="Audience">
+              <label><input type="radio" name="msg-audience" value="all" checked> All active users</label>
+              <label><input type="radio" name="msg-audience" value="selected"> Selected users</label>
+            </div>
+            <div id="msg-picker-wrap" hidden>
+              <div class="field">
+                <label for="msg-picker-search">Choose recipients</label>
+                <input id="msg-picker-search" type="search" placeholder="Filter by name or e-mail">
+              </div>
+              <div class="flex flex--wrap" style="margin:var(--space-2) 0">
+                <button class="btn btn--ghost btn--sm" type="button" id="msg-select-visible">Select shown</button>
+                <button class="btn btn--ghost btn--sm" type="button" id="msg-clear">Clear</button>
+                <span class="text-muted" id="msg-selected-count" style="align-self:center">0 selected</span>
+              </div>
+              <div class="recipient-picker" id="msg-picker"></div>
+            </div>
+            <div class="field"><label for="msg-subject">Subject</label><input id="msg-subject" type="text" maxlength="200" required></div>
+            <div class="field"><label for="msg-body">Message</label><textarea id="msg-body" maxlength="5000" style="min-height:140px" required></textarea></div>
+            <div id="msg-status" role="status" aria-live="polite"></div>
+            <div><button class="btn btn--primary" type="submit" id="msg-send">Send message</button></div>
+          </form>
+          <div class="card">
+            <h3>Sent messages</h3>
+            <div class="post-list" id="msg-history"><p class="text-muted">Loading&hellip;</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------ DOWNLOADS ---------------------------- -->
+      <section id="downloads" aria-labelledby="dl-title">
+        <h2 id="dl-title">Download center</h2>
+        <p class="text-muted">Download any dataset as CSV or as an Excel file (.xls). Files contain every row, not just the page you are viewing.</p>
+        <div class="export-grid" id="export-grid"></div>
+        <div class="flex flex--wrap mt-5">
+          <button class="btn btn--navy" type="button" id="dl-all-csv">Download everything (CSV files)</button>
+        </div>
+        <div id="dl-status" role="status" aria-live="polite" class="mt-4"></div>
       </section>
 
       <!-- ------------------------- SITE CONTENT SETTINGS --------------------- -->
@@ -205,6 +268,10 @@
       </section>
 
     </main>
+
+    <footer class="admin-footer">
+      RP-GISHARI COLLEGE Youth Volunteer &middot; Website developed by <strong>MWAAMINI Soulaiman</strong>
+    </footer>
   </div>
 
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
